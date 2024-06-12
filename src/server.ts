@@ -1,3 +1,4 @@
+import "express-async-errors";
 import express, { Application, Request, Response, NextFunction } from "express";
 import morgan from "morgan";
 import helmet from "helmet";
@@ -5,6 +6,7 @@ import cors from "cors";
 import compression from "compression";
 import http from "http";
 import { StatusCodes } from "http-status-codes";
+import crypto from "crypto";
 
 import configs from "@/configs";
 import { CustomError, IErrorResponse, NotFoundError } from "@/error-handler";
@@ -38,12 +40,16 @@ export class Server {
     initRedis();
     app.use(
       session({
-        secret: "ASasdasdsadsadsadsa",
-        name: "sess",
+        secret: configs.SESSION_SECRET,
+        name: configs.SESSION_KEY_NAME,
         cookie: {
           path: "/",
           httpOnly: true,
           secure: false,
+        },
+        genid: (req) => {
+          const randomId = crypto.randomBytes(10).toString("hex");
+          return `${req.session.user?.id}:${randomId}`;
         },
       })
     );

@@ -36,18 +36,18 @@ services:
     volumes:
       - ./docker_volumes/cache:/data
 
-  # postgres:
-  #   container_name: postgres_container
-  #   image: postgres
-  #   restart: always
-  #   environment:
-  #     - POSTGRES_USER=postgresql
-  #     - POSTGRES_PASSWORD=secret
-  #     - POSTGRES_DB=postgresdb
-  #   ports:
-  #     - 5432:5432
-  #   volumes:
-  #     - ./docker_volumes/postgres:/var/lib/postgresql
+  postgres:
+    container_name: postgres_container
+    image: postgres
+    restart: always
+    environment:
+      - POSTGRES_USER=postgresql
+      - POSTGRES_PASSWORD=secret
+      - POSTGRES_DB=postgresdb
+    ports:
+      - 5432:5432
+    volumes:
+      - ./docker_volumes/postgres:/var/lib/postgresql
 
   # rabbitmq:
   #   container_name: rabbitmq_container

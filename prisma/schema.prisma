@@ -1,0 +1,50 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgres"
+  url      = env("DATABASE_URL")
+}
+
+model LinkProvider {
+  id         String @id @default(cuid())
+  providerId String
+  provider   String @default("credential")
+  userId     String
+  user       User   @relation(fields: [userId], references: [id])
+
+  @@unique([provider, providerId])
+  @@index([userId, provider, providerId])
+}
+
+enum Role {
+  ADMIN
+  MANAGER
+  SALER
+  WRITER
+  CUSTOMER
+}
+
+model User {
+  id                     String         @id @default(cuid())
+  email                  String         @unique
+  emailVerified          Boolean        @default(false)
+  emailVerificationToken String         @unique
+  username               String
+  picture                String?
+  password               String?
+  passwordResetToken     String?        @unique
+  passwordResetExpires   DateTime?
+  role                   Role           @default(CUSTOMER)
+  isBlocked              Boolean        @default(false)
+  activeAccountToken     String?        @unique
+  activeAccountExpires   DateTime?
+  phone                  String?
+  address                String?
+  createdAt              DateTime       @default(now())
+  updatedAt              DateTime       @updatedAt
+  linkProvider           LinkProvider[]
+
+  @@index([email, emailVerificationToken, activeAccountToken, passwordResetToken])
+}

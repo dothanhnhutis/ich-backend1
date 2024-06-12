@@ -1,5 +1,15 @@
 import crypto from "crypto";
 import { z } from "zod";
+import bcryptjs from "bcryptjs";
+
+export const hashData = (data: string) => {
+  const salt = bcryptjs.genSaltSync(10);
+  return bcryptjs.hashSync(data, salt);
+};
+
+export const compareData = (hash: string, data: string): Promise<boolean> => {
+  return bcryptjs.compare(data, hash).catch((e) => false);
+};
 
 export function encrypt(text: string, secret: string) {
   const secretValidate = z

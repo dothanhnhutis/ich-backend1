@@ -1,8 +1,7 @@
-// import { Request } from "express";
-// import { rateLimit } from "express-rate-limit";
-// import { CreateContact } from "../schemas/contact.schema";
-// import { SendRecoverEmail } from "../schemas/user.schema";
-// import { ISessionDataStore } from "../passport";
+import { SendRecoverEmail } from "@/schemas/auth.schema";
+import { Request } from "express";
+import { rateLimit } from "express-rate-limit";
+// import { CreateContact } from "@/schemas/contact.schema";
 
 // export const rateLimitContact = rateLimit({
 //   windowMs: 60 * 1000,
@@ -17,18 +16,18 @@
 //   },
 // });
 
-// export const rateLimitRecover = rateLimit({
-//   windowMs: 60 * 1000,
-//   limit: 1,
-//   standardHeaders: "draft-7",
-//   legacyHeaders: false,
-//   keyGenerator: function (req: Request<{}, {}, SendRecoverEmail["body"]>) {
-//     return req.body.email;
-//   },
-//   handler: (req, res, next, options) => {
-//     return res.status(options.statusCode).json({ message: options.message });
-//   },
-// });
+export const rateLimitRecover = rateLimit({
+  windowMs: 60 * 1000,
+  limit: 1,
+  standardHeaders: "draft-7",
+  legacyHeaders: false,
+  keyGenerator: function (req: Request<{}, {}, SendRecoverEmail["body"]>) {
+    return req.body.email;
+  },
+  handler: (req, res, next, options) => {
+    return res.status(options.statusCode).json({ message: options.message });
+  },
+});
 
 // export const rateLimitSendEmail = rateLimit({
 //   windowMs: 60 * 1000,
