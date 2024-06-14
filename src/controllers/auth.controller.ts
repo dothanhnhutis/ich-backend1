@@ -177,7 +177,7 @@ export async function signUp(
 
   const randomBytes: Buffer = await Promise.resolve(crypto.randomBytes(20));
   const randomCharacters: string = randomBytes.toString("hex");
-  const verificationLink = `${configs.CLIENT_URL}/confirm-email?v_token=${randomCharacters}`;
+  const verifyLink = `${configs.CLIENT_URL}/confirm-email?v_token=${randomCharacters}`;
 
   const hash = hashData(password);
   // const newUser = await prisma.user.create({
@@ -192,7 +192,7 @@ export async function signUp(
   await sendMail("verifyEmail", email, {
     appIcon: "",
     appLink: "",
-    verificationLink,
+    verifyLink,
   });
 
   return res.status(StatusCodes.CREATED).send({

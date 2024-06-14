@@ -7,7 +7,7 @@ import path from "path";
 export interface IEmailLocals {
   appLink: string;
   appIcon: string;
-  verificationLink?: string;
+  verifyLink?: string;
   resetLink?: string;
 }
 const oAuth2Client = new google.auth.OAuth2(
@@ -21,6 +21,8 @@ export const sendMail = async (
   receiver: string,
   locals: IEmailLocals
 ) => {
+  console.log(__dirname);
+
   try {
     const accessToken = (await oAuth2Client.getAccessToken()) as string;
     const smtpTransport = nodemailer.createTransport({
@@ -41,22 +43,24 @@ export const sendMail = async (
         from: `I.C.H App <${configs.SENDER_EMAIL}>`,
       },
       send: true,
-      preview: false,
+      preview: true,
       transport: smtpTransport,
       views: {
         options: {
           extension: "ejs",
         },
       },
+
       juice: true,
       juiceResources: {
-        preserveImportant: true,
+        applyStyleTags: true,
+        // preserveImportant: true,
         webResources: {
-          relativeTo: path.join(__dirname, "..", "/emails"),
+          relativeTo: path.join(__dirname, "..", "/emails", template),
         },
       },
     });
-    console.log(__dirname);
+
     await email.send({
       template: path.join(__dirname, "..", "/emails", template),
       message: { to: receiver },
