@@ -18,6 +18,7 @@ const envSchema = z.object({
   SERVER_URL: z.string(),
   JWT_SECRET: z.string(),
   SENDER_EMAIL: z.string(),
+  APP_ICON: z.string(),
 });
 
 const configParser = envSchema.safeParse({
@@ -35,6 +36,7 @@ const configParser = envSchema.safeParse({
   SERVER_URL: process.env.SERVER_URL,
   JWT_SECRET: process.env.JWT_SECRET,
   SENDER_EMAIL: process.env.SENDER_EMAIL,
+  APP_ICON: process.env.APP_ICON,
 });
 
 if (!configParser.success) {

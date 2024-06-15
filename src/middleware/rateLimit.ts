@@ -17,7 +17,7 @@ import { rateLimit } from "express-rate-limit";
 // });
 
 export const rateLimitRecover = rateLimit({
-  windowMs: 60 * 1000,
+  windowMs: 3 * 60000,
   limit: 1,
   standardHeaders: "draft-7",
   legacyHeaders: false,

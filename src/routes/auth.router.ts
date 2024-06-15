@@ -8,6 +8,8 @@ import {
   // signInGoogleCallBack,
   signInGoogle,
   signInGoogleCallBack,
+  createReactivateLink,
+  reactivateAccount,
 } from "@/controllers/auth.controller";
 import { rateLimitRecover } from "@/middleware/rateLimit";
 import validateResource from "@/middleware/validateResource";
@@ -35,17 +37,31 @@ function authRouter(): Router {
   );
 
   router.patch(
-    "/recover",
+    "/auth/recover",
     rateLimitRecover,
     validateResource(sendRecoverEmailSchema),
     recover
   );
 
   router.patch(
-    "/reset-password/:token",
+    "/auth/reset-password/:token",
     validateResource(resetPasswordSchema),
     resetPassword
   );
+
+  router.patch(
+    "/auth/reactivate",
+    rateLimitRecover,
+    validateResource(sendRecoverEmailSchema),
+    createReactivateLink
+  );
+
+  router.get(
+    "/auth/reactivate/:token",
+    validateResource(verifyEmailSchema),
+    reactivateAccount
+  );
+
   return router;
 }
 

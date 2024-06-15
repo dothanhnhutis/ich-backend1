@@ -27,24 +27,26 @@ enum Role {
 }
 
 model User {
-  id                     String         @id @default(cuid())
-  email                  String         @unique
-  emailVerified          Boolean        @default(false)
-  emailVerificationToken String         @unique
-  username               String
-  picture                String?
-  password               String?
-  passwordResetToken     String?        @unique
-  passwordResetExpires   DateTime?
-  role                   Role           @default(CUSTOMER)
-  isBlocked              Boolean        @default(false)
-  isActive               Boolean        @default(true)
-  activeToken            String?        @unique
-  phone                  String?
-  address                String?
-  createdAt              DateTime       @default(now())
-  updatedAt              DateTime       @updatedAt
-  linkProvider           LinkProvider[]
+  id                       String         @id @default(cuid())
+  email                    String         @unique
+  emailVerified            Boolean        @default(false)
+  emailVerificationExpires DateTime? //24h
+  emailVerificationToken   String?        @unique
+  username                 String
+  picture                  String?
+  password                 String?
+  passwordResetToken       String?        @unique
+  passwordResetExpires     DateTime? //4h
+  role                     Role           @default(CUSTOMER)
+  isBlocked                Boolean        @default(false)
+  isActive                 Boolean        @default(true)
+  activeToken              String?        @unique
+  activeExpires            DateTime? //4h
+  phone                    String?
+  address                  String?
+  createdAt                DateTime       @default(now())
+  updatedAt                DateTime       @updatedAt
+  linkProvider             LinkProvider[]
 
-  @@index([email, emailVerificationToken, activeToken])
+  @@index([email, emailVerificationToken, passwordResetToken, activeToken])
 }

@@ -62,7 +62,11 @@ export const session =
         req.sessionID = decrypt(cookies[name], secret);
         const cookieRedis = await getData(req.sessionID);
         if (cookieRedis) {
-          req.session = JSON.parse(cookieRedis);
+          const cookieJson = JSON.parse(cookieRedis);
+          if ("expires" in cookieJson.cookie) {
+            cookieJson.cookie.expires = new Date(cookieJson.cookie.expires);
+          }
+          req.session = cookieJson;
         }
       } catch (error) {
         res.clearCookie(name);
@@ -101,9 +105,6 @@ export const session =
       },
       {
         set(target, p: keyof SessionData, newValue, receiver) {
-          console.log(p);
-          console.log(target);
-
           if (p == "cookie") {
             if ("expires" in newValue && "maxAge" in newValue) {
               const keysIndex = Object.keys(newValue);
@@ -148,10 +149,9 @@ export const session =
         },
       }
     );
-    console.log(req.session);
 
     res.on("finish", async () => {
-      if (changed && req.sessionID)
+      if (changed && req.sessionID) {
         await setDataInMilisecond(
           req.sessionID,
           JSON.stringify(req.session),
@@ -159,6 +159,7 @@ export const session =
             ? Math.abs(req.session.cookie.expires.getTime() - Date.now())
             : req.session.cookie.maxAge!
         );
+      }
     });
 
     next();
