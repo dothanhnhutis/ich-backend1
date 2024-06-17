@@ -138,7 +138,7 @@ export async function signInGoogleCallBack(
   };
   req.session.cookie.expires = new Date(Date.now() + SESSION_MAX_AGE);
 
-  res.status(StatusCodes.OK).json(userProvider.user);
+  res.redirect(`${configs.CLIENT_URL}/user/profile`);
 }
 
 export async function signIn(

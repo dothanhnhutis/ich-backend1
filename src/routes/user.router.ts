@@ -3,7 +3,9 @@ import {
   currentUser,
   disactivate,
   edit,
+  sendVerifyEmail,
 } from "@/controllers/user.controller";
+import { rateLimitSendEmail } from "@/middleware/rateLimit";
 import { checkActive, requiredAuth } from "@/middleware/requiredAuth";
 import validateResource from "@/middleware/validateResource";
 import { changePassword, editProfileSchema } from "@/schemas/user.schema";
@@ -25,6 +27,14 @@ function userRouter(): Router {
     checkActive,
     validateResource(editProfileSchema),
     edit
+  );
+
+  router.get(
+    "/users/send-verify-email",
+    requiredAuth,
+    checkActive,
+    rateLimitSendEmail,
+    sendVerifyEmail
   );
   return router;
 }

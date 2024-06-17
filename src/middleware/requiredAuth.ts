@@ -1,7 +1,6 @@
 import { RequestHandler as Middleware } from "express";
 import { NotAuthorizedError, PermissionError } from "../error-handler";
 import prisma from "@/utils/db";
-import configs from "@/configs";
 
 export const requiredAuth: Middleware = (req, res, next) => {
   if (!req.session.user) {
@@ -22,7 +21,7 @@ export const checkActive: Middleware = async (req, res, next) => {
     throw new NotAuthorizedError();
   }
 
-  if (!user || user.isBlocked || !user.isActive || !user.emailVerified) {
+  if (!user || user.isBlocked || !user.isActive) {
     throw new PermissionError();
   }
 

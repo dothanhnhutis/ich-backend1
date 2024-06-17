@@ -29,16 +29,16 @@ export const rateLimitRecover = rateLimit({
   },
 });
 
-// export const rateLimitSendEmail = rateLimit({
-//   windowMs: 60 * 1000,
-//   limit: 1,
-//   standardHeaders: "draft-7",
-//   legacyHeaders: false,
-//   keyGenerator: function (req: Request) {
-//     const currentUser = req.user! as ISessionDataStore;
-//     return currentUser.id;
-//   },
-//   handler: (req, res, next, options) => {
-//     return res.status(options.statusCode).json({ message: options.message });
-//   },
-// });
+export const rateLimitSendEmail = rateLimit({
+  windowMs: 60 * 1000,
+  limit: 1,
+  standardHeaders: "draft-7",
+  legacyHeaders: false,
+  keyGenerator: function (req: Request) {
+    const currentUser = req.session.user!;
+    return currentUser.id;
+  },
+  handler: (req, res, next, options) => {
+    return res.status(options.statusCode).json({ message: options.message });
+  },
+});

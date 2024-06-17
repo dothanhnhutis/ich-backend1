@@ -149,3 +149,52 @@ export async function changeEmail(
     message: "Updated and resending e-mail...",
   });
 }
+
+export async function sendVerifyEmail(req: Request, res: Response) {
+  const { id } = req.session.user!;
+  const user = await prisma.user.findUnique({
+    where: {
+      id,
+    },
+    select: {
+      username: true,
+      email: true,
+      emailVerified: true,
+      emailVerificationToken: true,
+      emailVerificationExpires: true,
+    },
+  });
+
+  if (!user) throw new BadRequestError("User not exist");
+  let verificationLink = `${configs.CLIENT_URL}/confirm-email?v_token=${user.emailVerificationToken}`;
+  if (
+    !user.emailVerificationExpires ||
+    user.emailVerificationExpires.getTime() < Date.now()
+  ) {
+    const randomBytes: Buffer = await Promise.resolve(crypto.randomBytes(20));
+    const randomCharacters: string = randomBytes.toString("hex");
+    verificationLink = `${configs.CLIENT_URL}/confirm-email?v_token=${randomCharacters}`;
+    const date: Date = new Date(Date.now() + 24 * 60 * 60000);
+    await prisma.user.update({
+      where: { id },
+      data: {
+        emailVerificationToken: randomCharacters,
+        emailVerificationExpires: date,
+      },
+    });
+  }
+
+  await sendMail({
+    template: emaiEnum.VERIFY_EMAIL,
+    receiver: user.email,
+    locals: {
+      username: user.username,
+      verificationLink,
+    },
+  });
+
+  return res.status(StatusCodes.OK).json({
+    message:
+      "New verification email is successfully sent. Please, check your email...",
+  });
+}
