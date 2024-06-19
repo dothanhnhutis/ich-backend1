@@ -7,6 +7,7 @@ import configs from "@/configs";
 import { compareData, hashData } from "@/utils/helper";
 import { BadRequestError, NotFoundError } from "@/error-handler";
 import {
+  CheckEmailDisactive,
   ResetPassword,
   SendRecoverEmail,
   SignIn,
@@ -16,6 +17,7 @@ import {
 import { emaiEnum, sendMail } from "@/utils/nodemailer";
 import { google } from "googleapis";
 import { Prisma } from "@prisma/client";
+import { getUserByEmail } from "@/services/user.service";
 
 type GoogleUserInfo = {
   id: string;
@@ -35,6 +37,7 @@ const oAuth2Client = new google.auth.OAuth2(
 );
 
 const SESSION_MAX_AGE = 30 * 24 * 60 * 60000;
+
 export async function signInGoogle(req: Request, res: Response) {
   const url = oAuth2Client.generateAuthUrl({
     access_type: "offline",
@@ -160,14 +163,23 @@ export async function signIn(
       "Your account has been locked please contact the administrator"
     );
 
-  if (!user.isActive)
-    throw new BadRequestError("Your account has been disactivate");
-
   req.session.user = {
     id: user.id,
   };
   req.session.cookie.expires = new Date(Date.now() + SESSION_MAX_AGE);
   return res.status(StatusCodes.OK).json({ message: "Sign in success" });
+}
+
+export async function checkEmailDisactive(
+  req: Request<{}, {}, CheckEmailDisactive["body"]>,
+  res: Response
+) {
+  const { email } = req.body;
+  const user = await getUserByEmail(email);
+  if (user && !user.isActive) {
+    throw new BadRequestError("Your account has been disactivate");
+  }
+  return res.status(StatusCodes.OK).json({ message: "Your account is active" });
 }
 
 export async function signOut(req: Request, res: Response) {

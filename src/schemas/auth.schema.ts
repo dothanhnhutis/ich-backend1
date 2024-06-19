@@ -1,24 +1,29 @@
 import z from "zod";
 
-export const signinSchema = z.object({
-  body: z
-    .object({
-      email: z
-        .string({
-          required_error: "email field is required",
-          invalid_type_error: "email field must be string",
-        })
-        .email("invalid email or password"),
-      password: z
-        .string({
-          required_error: "password field is required",
-          invalid_type_error: "password field must be string",
-        })
-        .min(8, "invalid email or password")
-        .max(40, "invalid email or password"),
+const signinBoduSchema = z.object({
+  email: z
+    .string({
+      required_error: "email field is required",
+      invalid_type_error: "email field must be string",
     })
-    .strict(),
+    .email("invalid email or password"),
+  password: z
+    .string({
+      required_error: "password field is required",
+      invalid_type_error: "password field must be string",
+    })
+    .min(8, "invalid email or password")
+    .max(40, "invalid email or password"),
 });
+
+export const signinSchema = z.object({
+  body: signinBoduSchema.strict(),
+});
+
+export const checkEmailCheckSchema = z.object({
+  body: signinBoduSchema.pick({ email: true }).strict(),
+});
+
 export const signupSchema = z.object({
   body: z
     .object({
@@ -92,5 +97,6 @@ export type SignUp = z.infer<typeof signupSchema>;
 export type VerifyEmail = z.infer<typeof verifyEmailSchema>;
 export type SendRecoverEmail = z.infer<typeof sendRecoverEmailSchema>;
 export type ResetPassword = z.infer<typeof resetPasswordSchema>;
+export type CheckEmailDisactive = z.infer<typeof checkEmailCheckSchema>;
 
 export type UserRole = "ADMIN" | "MANAGER" | "SALER" | "WRITER" | "CUSTOMER";
