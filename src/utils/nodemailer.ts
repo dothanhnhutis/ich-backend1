@@ -97,5 +97,6 @@ export const sendMail = async ({
     });
   } catch (error: any) {
     console.log(error.message);
+    console.log(error);
   }
 };

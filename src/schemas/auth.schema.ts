@@ -92,11 +92,18 @@ export const resetPasswordSchema = z.object({
       path: ["confirmPassword"],
     }),
 });
+
+export const reactivateAccountSchema = z.object({
+  params: z.object({
+    token: z.string(),
+  }),
+});
+
 export type SignIn = z.infer<typeof signinSchema>;
 export type SignUp = z.infer<typeof signupSchema>;
 export type VerifyEmail = z.infer<typeof verifyEmailSchema>;
 export type SendRecoverEmail = z.infer<typeof sendRecoverEmailSchema>;
 export type ResetPassword = z.infer<typeof resetPasswordSchema>;
 export type CheckEmailDisactive = z.infer<typeof checkEmailCheckSchema>;
-
+export type ReactivateAccount = z.infer<typeof reactivateAccountSchema>;
 export type UserRole = "ADMIN" | "MANAGER" | "SALER" | "WRITER" | "CUSTOMER";

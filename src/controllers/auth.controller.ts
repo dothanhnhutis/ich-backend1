@@ -8,6 +8,7 @@ import { compareData, hashData } from "@/utils/helper";
 import { BadRequestError, NotFoundError } from "@/error-handler";
 import {
   CheckEmailDisactive,
+  ReactivateAccount,
   ResetPassword,
   SendRecoverEmail,
   SignIn,
@@ -17,7 +18,8 @@ import {
 import { emaiEnum, sendMail } from "@/utils/nodemailer";
 import { google } from "googleapis";
 import { Prisma } from "@prisma/client";
-import { getUserByEmail } from "@/services/user.service";
+import { generateReactiveToken, getUserByEmail } from "@/services/user.service";
+import { parse } from "cookie";
 
 type GoogleUserInfo = {
   id: string;
@@ -170,18 +172,6 @@ export async function signIn(
   return res.status(StatusCodes.OK).json({ message: "Sign in success" });
 }
 
-export async function checkEmailDisactive(
-  req: Request<{}, {}, CheckEmailDisactive["body"]>,
-  res: Response
-) {
-  const { email } = req.body;
-  const user = await getUserByEmail(email);
-  if (user && !user.isActive) {
-    throw new BadRequestError("Your account has been disactivate");
-  }
-  return res.status(StatusCodes.OK).json({ message: "Your account is active" });
-}
-
 export async function signOut(req: Request, res: Response) {
   await req.logout();
   res
@@ -328,59 +318,76 @@ export async function resetPassword(
   });
 }
 
-export async function createReactivateLink(
-  req: Request<{}, {}, SendRecoverEmail["body"]>,
+export async function checkActiveAccount(
+  req: Request<{}, {}, CheckEmailDisactive["body"]>,
   res: Response
 ) {
   const { email } = req.body;
+  const user = await getUserByEmail(email);
+  if (!user || user.isActive)
+    throw new BadRequestError("Your account is active or not sign in");
+
+  const randomBytes: Buffer = await Promise.resolve(crypto.randomBytes(20));
+  let randomCharacters: string = user.activeToken || "";
+  let date: Date = user.activeExpires || new Date();
+  if (
+    user.activeToken == "" ||
+    !user.activeExpires ||
+    user.activeExpires.getTime() <= Date.now()
+  ) {
+    randomCharacters = randomBytes.toString("hex");
+    date = new Date(Date.now() + 15 * 60000);
+    await generateReactiveToken(user.id, {
+      activeToken: randomCharacters,
+      activeExpires: date,
+    });
+  }
+  return res
+    .status(StatusCodes.OK)
+    .cookie("eid", randomCharacters, { expires: date })
+    .json({ message: "Your account is currently closed" });
+}
+
+export async function sendReactivateAccount(req: Request, res: Response) {
+  const cookies = parse(req.get("cookie") || "");
   const existingUser = await prisma.user.findUnique({
-    where: { email },
+    where: {
+      activeToken: cookies["eid"] || "",
+      activeExpires: { gte: new Date() },
+    },
   });
-  if (!existingUser) throw new BadRequestError("Invalid email");
+
+  if (!existingUser) throw new NotFoundError();
   if (!existingUser.emailVerified)
     throw new BadRequestError(
       "Please verify your email address after using password recovery"
     );
-  const randomBytes: Buffer = await Promise.resolve(crypto.randomBytes(20));
-  const randomCharacters: string = randomBytes.toString("hex");
-  const date: Date = new Date(Date.now() + 4 * 60 * 60000);
-  await prisma.user.update({
-    where: {
-      id: existingUser.id,
-    },
-    data: {
-      activeToken: randomCharacters,
-      activeExpires: date,
-    },
-  });
-  const reactivateLink = `${configs.CLIENT_URL}/auth/reactivate?token=${randomCharacters}`;
+
+  const reactivateLink = `${configs.CLIENT_URL}/auth/reactivate?token=${existingUser.activeToken}`;
   await sendMail({
     template: emaiEnum.REACTIVATE_ACCOUNT,
-    receiver: email,
+    receiver: existingUser.email,
     locals: {
       username: existingUser.username,
       reactivateLink,
     },
   });
-  return res.status(StatusCodes.OK).send({
+  return res.clearCookie("eid").status(StatusCodes.OK).send({
     message: "Send email success",
   });
 }
 
-export async function reactivateAccount(req: Request, res: Response) {
+export async function reactivateAccount(
+  req: Request<ReactivateAccount["params"]>,
+  res: Response
+) {
   const { token } = req.params;
   const user = await prisma.user.findUnique({
-    where: { emailVerificationToken: token },
+    where: { activeToken: token },
   });
-  if (
-    !user ||
-    user.activeExpires ||
-    !user.emailVerificationExpires ||
-    user.emailVerificationExpires.getTime() < Date.now()
-  )
-    throw new NotFoundError();
+  if (!user) throw new NotFoundError();
   await prisma.user.update({
-    where: { emailVerificationToken: token },
+    where: { activeToken: token },
     data: {
       isActive: true,
     },

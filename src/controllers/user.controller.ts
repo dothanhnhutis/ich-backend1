@@ -110,7 +110,6 @@ export async function changeEmail(
     },
   });
   if (!user) throw new BadRequestError("User not exist");
-  if (user.emailVerified) throw new BadRequestError("Email has been verified");
 
   const checkNewEmail = await prisma.user.findUnique({
     where: {

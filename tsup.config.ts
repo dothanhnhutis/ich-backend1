@@ -5,7 +5,6 @@ const entries = glob.sync("src/**/*.{ts,ejs}", {
   dotRelative: true,
   posix: true,
 });
-// console.log(entries);
 
 export default defineConfig((opts) => ({
   entry: entries,

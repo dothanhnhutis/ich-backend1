@@ -18,3 +18,15 @@ export async function getUserByEmail(email: string) {
   });
   return user;
 }
+
+export async function generateReactiveToken(
+  id: string,
+  data: { activeExpires: Date; activeToken: string }
+) {
+  const user = await prisma.user.update({
+    where: {
+      id,
+    },
+    data,
+  });
+}
