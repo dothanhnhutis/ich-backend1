@@ -336,7 +336,7 @@ export async function checkActiveAccount(
     user.activeExpires.getTime() <= Date.now()
   ) {
     randomCharacters = randomBytes.toString("hex");
-    date = new Date(Date.now() + 15 * 60000);
+    date = new Date(Date.now() + 4 * 60 * 60000);
     await generateReactiveToken(user.id, {
       activeToken: randomCharacters,
       activeExpires: date,
@@ -358,10 +358,10 @@ export async function sendReactivateAccount(req: Request, res: Response) {
   });
 
   if (!existingUser) throw new NotFoundError();
-  if (!existingUser.emailVerified)
-    throw new BadRequestError(
-      "Please verify your email address after using password recovery"
-    );
+  // if (!existingUser.emailVerified)
+  //   throw new BadRequestError(
+  //     "Please verify your email address after using password recovery"
+  //   );
 
   const reactivateLink = `${configs.CLIENT_URL}/auth/reactivate?token=${existingUser.activeToken}`;
   await sendMail({

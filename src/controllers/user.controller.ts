@@ -25,6 +25,7 @@ export async function currentUser(req: Request, res: Response) {
         "picture",
         "role",
         "isActive",
+        "isBlocked",
         "phone",
         "address",
         "createdAt",
