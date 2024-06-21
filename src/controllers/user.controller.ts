@@ -166,14 +166,14 @@ export async function sendVerifyEmail(req: Request, res: Response) {
   });
 
   if (!user) throw new BadRequestError("User not exist");
-  let verificationLink = `${configs.CLIENT_URL}/confirm-email?v_token=${user.emailVerificationToken}`;
+  let verificationLink = `${configs.CLIENT_URL}/auth/confirm-email?v_token=${user.emailVerificationToken}`;
   if (
     !user.emailVerificationExpires ||
     user.emailVerificationExpires.getTime() < Date.now()
   ) {
     const randomBytes: Buffer = await Promise.resolve(crypto.randomBytes(20));
     const randomCharacters: string = randomBytes.toString("hex");
-    verificationLink = `${configs.CLIENT_URL}/confirm-email?v_token=${randomCharacters}`;
+    verificationLink = `${configs.CLIENT_URL}/auth/confirm-email?v_token=${randomCharacters}`;
     const date: Date = new Date(Date.now() + 24 * 60 * 60000);
     await prisma.user.update({
       where: { id },

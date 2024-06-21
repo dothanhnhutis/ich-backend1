@@ -39,6 +39,8 @@ const oAuth2Client = new google.auth.OAuth2(
 );
 
 const SESSION_MAX_AGE = 30 * 24 * 60 * 60000;
+const SUCCESS_REDIRECT = `${configs.CLIENT_URL}/user/profile`;
+const ERROR_REDIRECT = `${configs.CLIENT_URL}/auth/error`;
 
 export async function signInGoogle(req: Request, res: Response) {
   const url = oAuth2Client.generateAuthUrl({
@@ -54,66 +56,27 @@ export async function signInGoogle(req: Request, res: Response) {
 }
 
 export async function signInGoogleCallBack(
-  req: Request<{}, {}, {}, { code: string }>,
+  req: Request<{}, {}, {}, { code?: string; error?: string }>,
   res: Response
 ) {
-  const { code } = req.query;
-  const { tokens } = await oAuth2Client.getToken(code);
-  oAuth2Client.setCredentials(tokens);
+  const { code, error } = req.query;
+  if (error) res.redirect(ERROR_REDIRECT);
 
-  const oauth2 = google.oauth2({
-    auth: oAuth2Client,
-    version: "v2",
-  });
+  if (code) {
+    const { tokens } = await oAuth2Client.getToken(code);
+    oAuth2Client.setCredentials(tokens);
 
-  const userInfo = (await oauth2.userinfo.get()).data as GoogleUserInfo;
-  let userProvider = await prisma.linkProvider.findUnique({
-    where: {
-      provider_providerId: {
-        provider: "google",
-        providerId: userInfo.id,
-      },
-    },
-    include: {
-      user: {
-        select: {
-          id: true,
-          role: true,
-          isBlocked: true,
-          emailVerified: true,
-          isActive: true,
-        },
-      },
-    },
-  });
-
-  if (!userProvider) {
-    const data: Prisma.UserCreateInput = {
-      email: userInfo.email,
-      emailVerified: userInfo.verified_email,
-      username: userInfo.name,
-      picture: userInfo.picture,
-    };
-    if (!userInfo.verified_email) {
-      const randomBytes: Buffer = await Promise.resolve(crypto.randomBytes(20));
-      const randomCharacters: string = randomBytes.toString("hex");
-      const date: Date = new Date(Date.now() + 24 * 60 * 60000);
-      data.emailVerificationToken = randomCharacters;
-      data.emailVerificationExpires = date;
-    }
-
-    const user = await prisma.user.create({
-      data,
+    const oauth2 = google.oauth2({
+      auth: oAuth2Client,
+      version: "v2",
     });
 
-    userProvider = await prisma.linkProvider.create({
-      data: {
-        provider: "google",
-        providerId: userInfo.id,
-        user: {
-          connect: {
-            id: user.id,
-          },
+    const userInfo = (await oauth2.userinfo.get()).data as GoogleUserInfo;
+    let userProvider = await prisma.linkProvider.findUnique({
+      where: {
+        provider_providerId: {
+          provider: "google",
+          providerId: userInfo.id,
         },
       },
       include: {
@@ -128,22 +91,67 @@ export async function signInGoogleCallBack(
         },
       },
     });
+
+    if (!userProvider) {
+      const data: Prisma.UserCreateInput = {
+        email: userInfo.email,
+        emailVerified: userInfo.verified_email,
+        username: userInfo.name,
+        picture: userInfo.picture,
+      };
+      if (!userInfo.verified_email) {
+        const randomBytes: Buffer = await Promise.resolve(
+          crypto.randomBytes(20)
+        );
+        const randomCharacters: string = randomBytes.toString("hex");
+        const date: Date = new Date(Date.now() + 24 * 60 * 60000);
+        data.emailVerificationToken = randomCharacters;
+        data.emailVerificationExpires = date;
+      }
+
+      const user = await prisma.user.create({
+        data,
+      });
+
+      userProvider = await prisma.linkProvider.create({
+        data: {
+          provider: "google",
+          providerId: userInfo.id,
+          user: {
+            connect: {
+              id: user.id,
+            },
+          },
+        },
+        include: {
+          user: {
+            select: {
+              id: true,
+              role: true,
+              isBlocked: true,
+              emailVerified: true,
+              isActive: true,
+            },
+          },
+        },
+      });
+    }
+
+    if (userProvider.user.isBlocked)
+      throw new BadRequestError(
+        "Your account has been locked please contact the administrator"
+      );
+
+    if (!userProvider.user.isActive)
+      throw new BadRequestError("Your account has been disactivate");
+
+    req.session.user = {
+      id: userProvider.user.id,
+    };
+    req.session.cookie.expires = new Date(Date.now() + SESSION_MAX_AGE);
+
+    res.redirect(SUCCESS_REDIRECT);
   }
-
-  if (userProvider.user.isBlocked)
-    throw new BadRequestError(
-      "Your account has been locked please contact the administrator"
-    );
-
-  if (!userProvider.user.isActive)
-    throw new BadRequestError("Your account has been disactivate");
-
-  req.session.user = {
-    id: userProvider.user.id,
-  };
-  req.session.cookie.expires = new Date(Date.now() + SESSION_MAX_AGE);
-
-  res.redirect(`${configs.CLIENT_URL}/user/profile`);
 }
 
 export async function signIn(

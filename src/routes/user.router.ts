@@ -1,5 +1,6 @@
 import {
   changPassword,
+  changeEmail,
   currentUser,
   disactivate,
   edit,
@@ -36,6 +37,8 @@ function userRouter(): Router {
     rateLimitSendEmail,
     sendVerifyEmail
   );
+
+  router.patch("/users/change-email", requiredAuth, checkActive, changeEmail);
   return router;
 }
 
