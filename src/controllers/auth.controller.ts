@@ -202,7 +202,7 @@ export async function signUp(
 
   const randomBytes: Buffer = await Promise.resolve(crypto.randomBytes(20));
   const randomCharacters: string = randomBytes.toString("hex");
-  const verificationLink = `${configs.CLIENT_URL}/confirm-email?v_token=${randomCharacters}`;
+  const verificationLink = `${configs.CLIENT_URL}/auth/confirm-email?v_token=${randomCharacters}`;
   const date: Date = new Date(Date.now() + 24 * 60 * 60000);
 
   const hash = hashData(password);
@@ -226,7 +226,8 @@ export async function signUp(
   });
 
   return res.status(StatusCodes.CREATED).send({
-    message: "Sign up success",
+    message:
+      "Sign up success. A confirmation email will be sent to your email address.",
   });
 }
 

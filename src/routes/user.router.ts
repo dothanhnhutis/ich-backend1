@@ -4,6 +4,7 @@ import {
   currentUser,
   disactivate,
   edit,
+  getUser,
   sendVerifyEmail,
 } from "@/controllers/user.controller";
 import { rateLimitSendEmail } from "@/middleware/rateLimit";
@@ -13,7 +14,16 @@ import { changePassword, editProfileSchema } from "@/schemas/user.schema";
 import express, { type Router } from "express";
 const router: Router = express.Router();
 function userRouter(): Router {
+  router.get(
+    "/users/send-verify-email",
+    requiredAuth,
+    checkActive,
+    rateLimitSendEmail,
+    sendVerifyEmail
+  );
   router.get("/users/me", requiredAuth, checkActive, currentUser);
+  router.get("/users", getUser);
+
   router.patch("/users/disactivate", requiredAuth, checkActive, disactivate);
   router.patch(
     "/users/change-password",
@@ -28,14 +38,6 @@ function userRouter(): Router {
     checkActive,
     validateResource(editProfileSchema),
     edit
-  );
-
-  router.get(
-    "/users/send-verify-email",
-    requiredAuth,
-    checkActive,
-    rateLimitSendEmail,
-    sendVerifyEmail
   );
 
   router.patch("/users/change-email", requiredAuth, checkActive, changeEmail);

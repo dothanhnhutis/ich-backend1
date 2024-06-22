@@ -3,11 +3,45 @@ import prisma from "@/utils/db";
 import { StatusCodes } from "http-status-codes";
 import { pick } from "lodash";
 import { ChangePassword, EditProfile } from "@/schemas/user.schema";
-import { BadRequestError } from "@/error-handler";
+import { BadRequestError, NotFoundError } from "@/error-handler";
 import { compareData, hashData } from "@/utils/helper";
 import configs from "@/configs";
 import crypto from "crypto";
 import { emaiEnum, sendMail } from "@/utils/nodemailer";
+import {
+  getAllUser,
+  getUserById,
+  getUserByToken,
+} from "@/services/user.service";
+
+export async function getUser(
+  req: Request<
+    {},
+    {},
+    {},
+    {
+      tokenType: "reactivate" | "change-email" | "recover-password";
+      token: string;
+    }
+  >,
+  res: Response
+) {
+  console.log(req.query);
+  const { token, tokenType } = req.query;
+  if (token && tokenType) {
+    const user = await getUserByToken(tokenType, token);
+    if (!user) throw new NotFoundError();
+    return res.status(200).json(user);
+  } else {
+    if (!req.session.user) throw new NotFoundError();
+    const user = await getUserById(req.session.user.id);
+
+    if (user!.role != "ADMIN") throw new NotFoundError();
+
+    const users = await getAllUser();
+    return res.status(200).json(users);
+  }
+}
 
 export async function currentUser(req: Request, res: Response) {
   const { id } = req.session.user!;
