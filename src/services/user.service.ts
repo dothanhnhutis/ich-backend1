@@ -1,5 +1,7 @@
 import prisma from "@/utils/db";
+import { isBase64Data, uploadImageCloudinary } from "@/utils/image";
 import { Prisma } from "@prisma/client";
+import { z } from "zod";
 
 const userSelect: Prisma.UserSelect = {
   id: true,
@@ -85,4 +87,44 @@ export async function generateReactiveToken(
     },
     data,
   });
+}
+
+export async function editPictureById({
+  id,
+  picture,
+}: {
+  id: string;
+  picture: {
+    type: "base64" | "url";
+    data: string;
+  };
+}): Promise<boolean> {
+  let url: string | undefined;
+  console.log(z.string().base64().safeParse(picture.data).success);
+  if (picture.type == "base64" && isBase64Data(picture.data)) {
+    const { asset_id, height, public_id, secure_url, tags, width } =
+      await uploadImageCloudinary(picture.data);
+
+    console.log(secure_url);
+    url = secure_url;
+  }
+  if (
+    picture.type == "url" &&
+    z.string().url().safeParse(picture.data).success
+  ) {
+    url = picture.data;
+  }
+  if (url) {
+    await prisma.user.update({
+      where: {
+        id,
+      },
+      data: {
+        picture: url,
+      },
+    });
+    return true;
+  }
+
+  return false;
 }

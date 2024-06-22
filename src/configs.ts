@@ -19,6 +19,9 @@ const envSchema = z.object({
   JWT_SECRET: z.string(),
   SENDER_EMAIL: z.string(),
   APP_ICON: z.string(),
+  CLOUDINARY_NAME: z.string(),
+  CLOUDINARY_KEY: z.string(),
+  CLOUDINARY_SECRET: z.string(),
 });
 
 const configParser = envSchema.safeParse({
@@ -37,6 +40,9 @@ const configParser = envSchema.safeParse({
   JWT_SECRET: process.env.JWT_SECRET,
   SENDER_EMAIL: process.env.SENDER_EMAIL,
   APP_ICON: process.env.APP_ICON,
+  CLOUDINARY_NAME: process.env.CLOUDINARY_NAME,
+  CLOUDINARY_KEY: process.env.CLOUDINARY_KEY,
+  CLOUDINARY_SECRET: process.env.CLOUDINARY_SECRET,
 });
 
 if (!configParser.success) {

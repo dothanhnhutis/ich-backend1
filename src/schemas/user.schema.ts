@@ -1,9 +1,9 @@
 import { z } from "zod";
 
-export const changePassword = z.object({
+export const editPasswordSchema = z.object({
   body: z
     .object({
-      currentPassword: z.string(),
+      oldPassword: z.string(),
       newPassword: z
         .string({
           required_error: "Password field is required",
@@ -22,7 +22,7 @@ export const changePassword = z.object({
       message: "Confirm new password don't match",
       path: ["confirmNewPassword"],
     })
-    .refine((data) => data.currentPassword === data.newPassword, {
+    .refine((data) => data.oldPassword === data.newPassword, {
       message: "The new password and old password must not be the same",
       path: ["confirmNewPassword"],
     }),
@@ -32,7 +32,6 @@ export const editProfileSchema = z.object({
   body: z
     .object({
       username: z.string(),
-      picture: z.string(),
       phone: z.string(),
       address: z.string(),
     })
@@ -40,5 +39,15 @@ export const editProfileSchema = z.object({
     .strip(),
 });
 
-export type ChangePassword = z.infer<typeof changePassword>;
+export const editPictureSchema = z.object({
+  body: z
+    .object({
+      pictureType: z.enum(["base64", "url"]),
+      pictureData: z.string(),
+    })
+    .strict(),
+});
+
+export type EditPassword = z.infer<typeof editPasswordSchema>;
 export type EditProfile = z.infer<typeof editProfileSchema>;
+export type EditPicture = z.infer<typeof editPictureSchema>;

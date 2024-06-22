@@ -1,16 +1,17 @@
 import {
-  changPassword,
   changeEmail,
   currentUser,
   disactivate,
   edit,
+  editAvatar,
+  editPassword,
   getUser,
   sendVerifyEmail,
 } from "@/controllers/user.controller";
 import { rateLimitSendEmail } from "@/middleware/rateLimit";
 import { checkActive, requiredAuth } from "@/middleware/requiredAuth";
 import validateResource from "@/middleware/validateResource";
-import { changePassword, editProfileSchema } from "@/schemas/user.schema";
+import { editPasswordSchema, editProfileSchema } from "@/schemas/user.schema";
 import express, { type Router } from "express";
 const router: Router = express.Router();
 function userRouter(): Router {
@@ -25,13 +26,15 @@ function userRouter(): Router {
   router.get("/users", getUser);
 
   router.patch("/users/disactivate", requiredAuth, checkActive, disactivate);
-  router.patch(
-    "/users/change-password",
+  router.post(
+    "/users/password",
     requiredAuth,
     checkActive,
-    validateResource(changePassword),
-    changPassword
+    validateResource(editPasswordSchema),
+    editPassword
   );
+  router.post("/users/picture", requiredAuth, checkActive, editAvatar);
+
   router.patch(
     "/users",
     requiredAuth,

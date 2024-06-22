@@ -55,6 +55,7 @@ export const session =
         ...cookie,
       },
     };
+
     const cookies = parse(req.get("cookie") || "");
     let changed: boolean = false;
     if (cookies[name]) {

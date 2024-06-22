@@ -2,13 +2,14 @@ import { Request, Response } from "express";
 import prisma from "@/utils/db";
 import { StatusCodes } from "http-status-codes";
 import { pick } from "lodash";
-import { ChangePassword, EditProfile } from "@/schemas/user.schema";
+import { EditPassword, EditPicture, EditProfile } from "@/schemas/user.schema";
 import { BadRequestError, NotFoundError } from "@/error-handler";
 import { compareData, hashData } from "@/utils/helper";
 import configs from "@/configs";
 import crypto from "crypto";
 import { emaiEnum, sendMail } from "@/utils/nodemailer";
 import {
+  editPictureById,
   getAllUser,
   getUserById,
   getUserByToken,
@@ -26,7 +27,6 @@ export async function getUser(
   >,
   res: Response
 ) {
-  console.log(req.query);
   const { token, tokenType } = req.query;
   if (token && tokenType) {
     const user = await getUserByToken(tokenType, token);
@@ -87,30 +87,31 @@ export async function disactivate(req: Request, res: Response) {
   });
 }
 
-export async function changPassword(
-  req: Request<{}, {}, ChangePassword["body"]>,
+export async function editPassword(
+  req: Request<{}, {}, EditPassword["body"]>,
   res: Response
 ) {
-  const { currentPassword, newPassword } = req.body;
+  const { oldPassword, newPassword } = req.body;
   const { id } = req.session.user!;
   const userExist = await prisma.user.findUnique({ where: { id } });
   if (!userExist) throw new BadRequestError("User not exist");
   const isValidOldPassword = await compareData(
     userExist.password!,
-    currentPassword
+    oldPassword
   );
 
   if (!isValidOldPassword)
     throw new BadRequestError("Old password is incorrect");
 
-  await prisma.user.update({
-    where: {
-      id: userExist.id,
-    },
-    data: {
-      password: hashData(newPassword),
-    },
-  });
+  if (oldPassword != newPassword)
+    await prisma.user.update({
+      where: {
+        id: userExist.id,
+      },
+      data: {
+        password: hashData(newPassword),
+      },
+    });
 
   return res.status(StatusCodes.OK).json({
     message: "Edit password success",
@@ -230,5 +231,22 @@ export async function sendVerifyEmail(req: Request, res: Response) {
   return res.status(StatusCodes.OK).json({
     message:
       "New verification email is successfully sent. Please, check your email...",
+  });
+}
+
+export async function editAvatar(
+  req: Request<{}, {}, EditPicture["body"]>,
+  res: Response
+) {
+  const { id } = req.session.user!;
+  const { pictureType, pictureData } = req.body;
+  console.log(req.body);
+  return res.send({
+    message: (await editPictureById({
+      id,
+      picture: { type: pictureType, data: pictureData },
+    }))
+      ? "Update picture success"
+      : "Update picture fail",
   });
 }

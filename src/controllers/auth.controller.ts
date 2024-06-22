@@ -272,17 +272,25 @@ export async function recover(
     );
 
   const randomBytes: Buffer = await Promise.resolve(crypto.randomBytes(20));
-  const randomCharacters: string = randomBytes.toString("hex");
-  const date: Date = new Date(Date.now() + 4 * 60 * 60000);
-  await prisma.user.update({
-    where: {
-      id: existingUser.id,
-    },
-    data: {
-      passwordResetToken: randomCharacters,
-      passwordResetExpires: date,
-    },
-  });
+  let randomCharacters = existingUser.passwordResetToken;
+  if (
+    !randomCharacters ||
+    !existingUser.passwordResetExpires ||
+    existingUser.passwordResetExpires.getTime() < Date.now()
+  ) {
+    randomCharacters = randomBytes.toString("hex");
+    const date: Date = new Date(Date.now() + 4 * 60 * 60000);
+    await prisma.user.update({
+      where: {
+        id: existingUser.id,
+      },
+      data: {
+        passwordResetToken: randomCharacters,
+        passwordResetExpires: date,
+      },
+    });
+  }
+
   const recoverLink = `${configs.CLIENT_URL}/auth/reset-password?token=${randomCharacters}`;
   await sendMail({
     template: emaiEnum.RECOVER_ACCOUNT,
