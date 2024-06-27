@@ -28,26 +28,6 @@ export const editPasswordSchema = z.object({
     }),
 });
 
-export const editProfileSchema = z.object({
-  body: z
-    .object({
-      username: z.string(),
-      phone: z.string(),
-      address: z.string(),
-    })
-    .partial()
-    .strip(),
-});
-
-export const editPictureSchema = z.object({
-  body: z
-    .object({
-      pictureType: z.enum(["base64", "url"]),
-      pictureData: z.string(),
-    })
-    .strict(),
-});
-
 export const creatUserSchema = z.object({
   body: z
     .object({
@@ -103,7 +83,44 @@ export const creatUserSchema = z.object({
     .strict(),
 });
 
+export const editProfileSchema = z.object({
+  body: creatUserSchema.shape.body
+    .pick({
+      username: true,
+      phone: true,
+      address: true,
+    })
+    .partial()
+    .strip(),
+});
+
+export const editPictureSchema = z.object({
+  body: z
+    .object({
+      pictureType: z.enum(["base64", "url"]),
+      pictureData: z.string(),
+    })
+    .strict(),
+});
+
+export const editUserSchema = z.object({
+  params: z.object({
+    id: z.string(),
+  }),
+  body: creatUserSchema.shape.body
+    .extend({
+      picture: editPictureSchema.shape.body,
+      isActive: z.boolean({
+        required_error: "isActive field is required",
+        invalid_type_error: "isActive field must be boolean",
+      }),
+    })
+    .partial()
+    .strip(),
+});
+
 export type EditPassword = z.infer<typeof editPasswordSchema>;
 export type EditProfile = z.infer<typeof editProfileSchema>;
 export type EditPicture = z.infer<typeof editPictureSchema>;
 export type CreateUser = z.infer<typeof creatUserSchema>;
+export type EditUser = z.infer<typeof editUserSchema>;

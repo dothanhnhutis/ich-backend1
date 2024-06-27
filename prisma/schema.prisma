@@ -46,7 +46,41 @@ model User {
   address                  String?
   createdAt                DateTime       @default(now())
   updatedAt                DateTime       @updatedAt
-  linkProvider             LinkProvider[]
+  LinkProvider             LinkProvider[]
+  Post                     Post[]
 
   @@index([email, emailVerificationToken, passwordResetToken, activeToken])
+}
+
+// Post Model
+model Post {
+  id          String   @id @default(cuid())
+  title       String
+  image       String
+  slug        String   @unique
+  contentJson String
+  contentText String
+  contentHTML String
+  tag         Tag      @relation(fields: [tagId], references: [id])
+  tagId       String
+  author      User     @relation(fields: [authorId], references: [id])
+  authorId    String
+  isActive    Boolean  @default(true)
+  publishAt   DateTime
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([title, slug, tagId, authorId])
+}
+
+// Tag Model
+model Tag {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  post      Post[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([name, slug])
 }

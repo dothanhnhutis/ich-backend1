@@ -1,3 +1,5 @@
+import { NotFoundError } from "@/error-handler";
+import { EditUser } from "@/schemas/user.schema";
 import prisma from "@/utils/db";
 import { isBase64Data, uploadImageCloudinary } from "@/utils/image";
 import { Prisma } from "@prisma/client";
@@ -100,7 +102,6 @@ export async function editPictureById({
   };
 }): Promise<boolean> {
   let url: string | undefined;
-  console.log(z.string().base64().safeParse(picture.data).success);
   if (picture.type == "base64" && isBase64Data(picture.data)) {
     const { asset_id, height, public_id, secure_url, tags, width } =
       await uploadImageCloudinary(picture.data);
@@ -127,4 +128,24 @@ export async function editPictureById({
   }
 
   return false;
+}
+
+export async function editUserById(
+  id: string,
+  data: Omit<Prisma.UserUpdateInput, "Post" | "linkProvider">
+) {
+  return await prisma.user.update({
+    where: {
+      id,
+    },
+    data: data,
+  });
+}
+
+export async function createUser(
+  data: Omit<Prisma.UserCreateInput, "Post" | "linkProvider">
+) {
+  return await prisma.user.create({
+    data,
+  });
 }

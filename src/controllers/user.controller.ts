@@ -1,12 +1,11 @@
 import { Request, Response } from "express";
-import prisma from "@/utils/db";
 import { StatusCodes } from "http-status-codes";
-import { pick } from "lodash";
 import {
   CreateUser,
   EditPassword,
   EditPicture,
   EditProfile,
+  EditUser,
 } from "@/schemas/user.schema";
 import { BadRequestError, NotFoundError } from "@/error-handler";
 import { compareData, hashData } from "@/utils/helper";
@@ -14,11 +13,17 @@ import configs from "@/configs";
 import crypto from "crypto";
 import { emaiEnum, sendMail } from "@/utils/nodemailer";
 import {
-  editPictureById,
+  createUser,
+  editUserById,
   getAllUser,
+  getUserByEmail,
   getUserById,
   getUserByToken,
 } from "@/services/user.service";
+import { Prisma } from "@prisma/client";
+import { isBase64Data, uploadImageCloudinary } from "@/utils/image";
+import { z } from "zod";
+import { omit } from "lodash";
 
 export async function getUser(
   req: Request<
@@ -50,39 +55,14 @@ export async function getUser(
 
 export async function currentUser(req: Request, res: Response) {
   const { id } = req.session.user!;
-  const user = await prisma.user.findUnique({
-    where: { id },
-  });
-  res
-    .status(StatusCodes.OK)
-    .json(
-      pick(user, [
-        "id",
-        "email",
-        "emailVerified",
-        "username",
-        "picture",
-        "role",
-        "isActive",
-        "isBlocked",
-        "phone",
-        "address",
-        "createdAt",
-        "updatedAt",
-      ])
-    );
+  const user = await getUserById(id);
+  res.status(StatusCodes.OK).json(user);
 }
 
 export async function disactivate(req: Request, res: Response) {
   const { id } = req.session.user!;
-
-  await prisma.user.update({
-    where: {
-      id,
-    },
-    data: {
-      isActive: false,
-    },
+  await editUserById(id, {
+    isActive: false,
   });
 
   await req.logout();
@@ -98,7 +78,7 @@ export async function editPassword(
 ) {
   const { oldPassword, newPassword } = req.body;
   const { id } = req.session.user!;
-  const userExist = await prisma.user.findUnique({ where: { id } });
+  const userExist = await getUserById(id);
   if (!userExist) throw new BadRequestError("User not exist");
   const isValidOldPassword = await compareData(
     userExist.password!,
@@ -109,13 +89,8 @@ export async function editPassword(
     throw new BadRequestError("Old password is incorrect");
 
   if (oldPassword != newPassword)
-    await prisma.user.update({
-      where: {
-        id: userExist.id,
-      },
-      data: {
-        password: hashData(newPassword),
-      },
+    await editUserById(id, {
+      password: hashData(newPassword),
     });
 
   return res.status(StatusCodes.OK).json({
@@ -123,19 +98,64 @@ export async function editPassword(
   });
 }
 
-export async function edit(
+export async function editProfile(
   req: Request<{}, {}, EditProfile["body"]>,
   res: Response
 ) {
   const { id } = req.session.user!;
-  const data = req.body;
-  await prisma.user.update({
-    where: {
-      id,
-    },
-    data,
-  });
+  await editUserById(id, req.body);
   return res.status(StatusCodes.OK).json({ message: "Edit profile success" });
+}
+
+export async function editUser(
+  req: Request<EditUser["params"], {}, EditUser["body"]>,
+  res: Response
+) {
+  const { id } = req.params;
+  const user = await getUserById(id);
+  if (!user) throw new NotFoundError();
+
+  let data: Omit<Prisma.UserUpdateInput, "Post"> = {};
+
+  if (req.body.password) {
+    data.password = hashData(req.body.password);
+  }
+
+  if (req.body.email) {
+    const userExist = await getUserByEmail(req.body.email);
+    if (!userExist) throw new BadRequestError("email already exists");
+    data.email = req.body.email;
+    data.emailVerified = false;
+  }
+
+  if (req.body.picture) {
+    let url: string;
+    if (
+      req.body.picture.pictureType == "base64" &&
+      isBase64Data(req.body.picture.pictureData)
+    ) {
+      const { asset_id, height, public_id, secure_url, tags, width } =
+        await uploadImageCloudinary(req.body.picture.pictureData);
+      url = secure_url;
+    } else if (
+      req.body.picture.pictureType == "url" &&
+      z.string().url().safeParse(req.body.picture.pictureData).success
+    ) {
+      url = req.body.picture.pictureData;
+    } else {
+      throw new BadRequestError("edit picture fail");
+    }
+    data.picture = url;
+  }
+  data = {
+    ...data,
+    ...omit(req.body, ["picture", "email", "password"]),
+  };
+
+  return res.status(StatusCodes.OK).json({
+    message: "Edit user success",
+    userawait: await editUserById(id, data),
+  });
 }
 
 export async function changeEmail(
@@ -145,18 +165,10 @@ export async function changeEmail(
   const { email } = req.body;
   const { id } = req.session.user!;
 
-  const user = await prisma.user.findUnique({
-    where: {
-      id,
-    },
-  });
-  if (!user) throw new BadRequestError("User not exist");
+  const user = await getUserById(id);
+  if (!user) throw new NotFoundError();
 
-  const checkNewEmail = await prisma.user.findUnique({
-    where: {
-      email,
-    },
-  });
+  const checkNewEmail = await getUserByEmail(email);
   if (checkNewEmail) throw new BadRequestError("Email already exists");
 
   const randomBytes: Buffer = await Promise.resolve(crypto.randomBytes(20));
@@ -164,16 +176,11 @@ export async function changeEmail(
   const verificationLink = `${configs.CLIENT_URL}/confirm-email?v_token=${randomCharacters}`;
   const date: Date = new Date(Date.now() + 24 * 60 * 60000);
 
-  await prisma.user.update({
-    where: {
-      id: user.id,
-    },
-    data: {
-      email,
-      emailVerified: false,
-      emailVerificationExpires: date,
-      emailVerificationToken: randomCharacters,
-    },
+  await editUserById(id, {
+    email,
+    emailVerified: false,
+    emailVerificationExpires: date,
+    emailVerificationToken: randomCharacters,
   });
 
   await sendMail({
@@ -192,20 +199,9 @@ export async function changeEmail(
 
 export async function sendVerifyEmail(req: Request, res: Response) {
   const { id } = req.session.user!;
-  const user = await prisma.user.findUnique({
-    where: {
-      id,
-    },
-    select: {
-      username: true,
-      email: true,
-      emailVerified: true,
-      emailVerificationToken: true,
-      emailVerificationExpires: true,
-    },
-  });
+  const user = await getUserById(id);
 
-  if (!user) throw new BadRequestError("User not exist");
+  if (!user) throw new NotFoundError();
   let verificationLink = `${configs.CLIENT_URL}/auth/confirm-email?v_token=${user.emailVerificationToken}`;
   if (
     !user.emailVerificationExpires ||
@@ -215,12 +211,9 @@ export async function sendVerifyEmail(req: Request, res: Response) {
     const randomCharacters: string = randomBytes.toString("hex");
     verificationLink = `${configs.CLIENT_URL}/auth/confirm-email?v_token=${randomCharacters}`;
     const date: Date = new Date(Date.now() + 24 * 60 * 60000);
-    await prisma.user.update({
-      where: { id },
-      data: {
-        emailVerificationToken: randomCharacters,
-        emailVerificationExpires: date,
-      },
+    await editUserById(id, {
+      emailVerificationToken: randomCharacters,
+      emailVerificationExpires: date,
     });
   }
 
@@ -245,24 +238,35 @@ export async function editAvatar(
 ) {
   const { id } = req.session.user!;
   const { pictureType, pictureData } = req.body;
-  console.log(req.body);
+  let url: string;
+  if (pictureType == "base64" && isBase64Data(pictureData)) {
+    const { asset_id, height, public_id, secure_url, tags, width } =
+      await uploadImageCloudinary(pictureData);
+    url = secure_url;
+  } else if (
+    pictureType == "url" &&
+    z.string().url().safeParse(pictureData).success
+  ) {
+    url = pictureData;
+  } else {
+    throw new BadRequestError("edit picture fail");
+  }
   return res.send({
-    message: (await editPictureById({
-      id,
-      picture: { type: pictureType, data: pictureData },
+    message: (await editUserById(id, {
+      picture: url,
     }))
       ? "Update picture success"
       : "Update picture fail",
   });
 }
 
-export async function creatUser(
+export async function creatNewUser(
   req: Request<{}, {}, CreateUser["body"]>,
   res: Response
 ) {
   const { email, password, username, role, ...other } = req.body;
 
-  const user = await prisma.user.findUnique({ where: { email } });
+  const user = await getUserByEmail(email);
   if (user) throw new BadRequestError("Email has been used");
   const randomBytes: Buffer = await Promise.resolve(crypto.randomBytes(20));
   const randomCharacters: string = randomBytes.toString("hex");
@@ -270,16 +274,15 @@ export async function creatUser(
   const date: Date = new Date(Date.now() + 24 * 60 * 60000);
 
   const hash = hashData(password);
-  await prisma.user.create({
-    data: {
-      email: email,
-      password: hash,
-      username,
-      emailVerificationToken: randomCharacters,
-      emailVerificationExpires: date,
-      ...other,
-    },
+  await createUser({
+    email: email,
+    password: hash,
+    username,
+    emailVerificationToken: randomCharacters,
+    emailVerificationExpires: date,
+    ...other,
   });
+
   // await sendMail({
   //   template: emaiEnum.VERIFY_EMAIL,
   //   receiver: email,
@@ -288,6 +291,7 @@ export async function creatUser(
   //     verificationLink,
   //   },
   // });
+
   return res.status(StatusCodes.OK).json({
     message: "create new user success",
   });

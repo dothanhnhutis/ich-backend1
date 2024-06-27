@@ -1,13 +1,14 @@
 import {
   changeEmail,
-  creatUser,
+  creatNewUser,
   currentUser,
   disactivate,
-  edit,
+  editProfile,
   editAvatar,
   editPassword,
   getUser,
   sendVerifyEmail,
+  editUser,
 } from "@/controllers/user.controller";
 import { rateLimitSendEmail } from "@/middleware/rateLimit";
 import { checkActive, requiredAuth } from "@/middleware/requiredAuth";
@@ -29,7 +30,8 @@ function userRouter(): Router {
   );
   router.get("/users/me", requiredAuth, checkActive, currentUser);
   router.get("/users", getUser);
-  router.post("/users", validateResource(creatUserSchema), creatUser);
+  router.post("/users", validateResource(creatUserSchema), creatNewUser);
+  router.patch("/users", validateResource(creatUserSchema), editUser);
 
   router.patch("/users/disactivate", requiredAuth, checkActive, disactivate);
   router.post(
@@ -46,7 +48,7 @@ function userRouter(): Router {
     requiredAuth,
     checkActive,
     validateResource(editProfileSchema),
-    edit
+    editProfile
   );
 
   router.patch("/users/change-email", requiredAuth, checkActive, changeEmail);
