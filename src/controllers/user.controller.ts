@@ -2,7 +2,12 @@ import { Request, Response } from "express";
 import prisma from "@/utils/db";
 import { StatusCodes } from "http-status-codes";
 import { pick } from "lodash";
-import { EditPassword, EditPicture, EditProfile } from "@/schemas/user.schema";
+import {
+  CreateUser,
+  EditPassword,
+  EditPicture,
+  EditProfile,
+} from "@/schemas/user.schema";
 import { BadRequestError, NotFoundError } from "@/error-handler";
 import { compareData, hashData } from "@/utils/helper";
 import configs from "@/configs";
@@ -248,5 +253,42 @@ export async function editAvatar(
     }))
       ? "Update picture success"
       : "Update picture fail",
+  });
+}
+
+export async function creatUser(
+  req: Request<{}, {}, CreateUser["body"]>,
+  res: Response
+) {
+  const { email, password, username, role, ...other } = req.body;
+
+  const user = await prisma.user.findUnique({ where: { email } });
+  if (user) throw new BadRequestError("Email has been used");
+  const randomBytes: Buffer = await Promise.resolve(crypto.randomBytes(20));
+  const randomCharacters: string = randomBytes.toString("hex");
+  const verificationLink = `${configs.CLIENT_URL}/auth/confirm-email?v_token=${randomCharacters}`;
+  const date: Date = new Date(Date.now() + 24 * 60 * 60000);
+
+  const hash = hashData(password);
+  await prisma.user.create({
+    data: {
+      email: email,
+      password: hash,
+      username,
+      emailVerificationToken: randomCharacters,
+      emailVerificationExpires: date,
+      ...other,
+    },
+  });
+  // await sendMail({
+  //   template: emaiEnum.VERIFY_EMAIL,
+  //   receiver: email,
+  //   locals: {
+  //     username,
+  //     verificationLink,
+  //   },
+  // });
+  return res.status(StatusCodes.OK).json({
+    message: "create new user success",
   });
 }
