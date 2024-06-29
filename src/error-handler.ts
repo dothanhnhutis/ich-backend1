@@ -49,8 +49,8 @@ export class NotFoundError extends CustomError {
 export class PermissionError extends CustomError {
   statusCode: number = StatusCodes.FORBIDDEN;
 
-  constructor() {
-    super("Permission denied");
+  constructor(message?: string) {
+    super(message || "Permission denied");
   }
 }
 

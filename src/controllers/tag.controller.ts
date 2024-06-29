@@ -6,7 +6,7 @@ import {
   editTagById,
   getAllTag,
   getTagById,
-  getTagBySlug,
+  getTagByIdOrSlug,
 } from "@/services/tag.service";
 import { Request, Response } from "express";
 import { StatusCodes } from "http-status-codes";
@@ -17,8 +17,9 @@ export async function getTags(req: Request, res: Response) {
 }
 
 export async function getTag(req: Request<GetTag["params"]>, res: Response) {
-  const tag = await getTagById(req.params.id);
-  return res.status(StatusCodes.OK).send(tag);
+  const tag = await getTagByIdOrSlug(req.params.idOrSlug);
+  if (!tag) throw new NotFoundError();
+  return res.status(StatusCodes.OK).json(tag);
 }
 
 export async function createNewTag(
@@ -26,8 +27,8 @@ export async function createNewTag(
   res: Response
 ) {
   const { slug } = req.body;
-  const tag = await getTagBySlug(slug);
-  if (tag) throw new BadRequestError("slug has been used");
+  const tag = await getTagByIdOrSlug(slug);
+  if (tag) throw new BadRequestError("slug already exists");
   const newTag = await createTag(req.body);
   return res
     .status(StatusCodes.CREATED)
@@ -40,18 +41,16 @@ export async function editTag(
 ) {
   const { id } = req.params;
   const { slug } = req.body;
-
   const tagExist = await getTagById(id);
   if (!tagExist) throw new NotFoundError();
-
   if (slug && slug !== tagExist.slug) {
-    const slugExist = await getTagBySlug(slug);
-    if (slugExist) throw new BadRequestError("slug has been used");
+    const slugExist = await getTagByIdOrSlug(slug);
+    if (slugExist) throw new BadRequestError("Slug has been used");
   }
-
   const newTag = await editTagById(id, req.body);
-
-  return res.json({ message: "Tag updated successfully", tag: newTag });
+  return res
+    .status(StatusCodes.OK)
+    .json({ message: "Tag updated successfully", tag: newTag });
 }
 
 export async function deleteTag(
@@ -61,9 +60,9 @@ export async function deleteTag(
   const { id } = req.params;
   const tag = await getTagById(id);
   if (!tag) throw new NotFoundError();
-  if (tag._count.post > 0) throw new BadRequestError("tag is in use");
+  if (tag._count.post > 0) throw new BadRequestError("Tag being used by posts");
   const deleteTag = await deleteTagById(id);
   return res
-    .status(200)
+    .status(StatusCodes.OK)
     .json({ message: "Tag removed successfully", tag: deleteTag });
 }

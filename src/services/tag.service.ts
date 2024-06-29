@@ -2,6 +2,19 @@ import { CreateTag, EditTag } from "@/schemas/tag.schema";
 import prisma from "@/utils/db";
 import { Prisma } from "@prisma/client";
 
+export async function getTagByIdOrSlug(idOrSlug: string) {
+  return await prisma.tag.findFirst({
+    where: {
+      OR: [
+        {
+          id: idOrSlug,
+        },
+        { slug: idOrSlug },
+      ],
+    },
+  });
+}
+
 export async function getAllTag() {
   return await prisma.tag.findMany({
     include: {
@@ -17,19 +30,6 @@ export async function getAllTag() {
 export async function getTagById(id: string) {
   return await prisma.tag.findUnique({
     where: { id },
-    include: {
-      _count: {
-        select: {
-          post: true,
-        },
-      },
-    },
-  });
-}
-
-export async function getTagBySlug(slug: string) {
-  return await prisma.tag.findUnique({
-    where: { slug },
     include: {
       _count: {
         select: {

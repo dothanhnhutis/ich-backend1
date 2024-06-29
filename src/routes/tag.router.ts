@@ -3,6 +3,7 @@ import {
   deleteTag,
   editTag,
   getTag,
+  getTags,
 } from "@/controllers/tag.controller";
 import checkPermission from "@/middleware/checkPermission";
 import { requiredAuth } from "@/middleware/requiredAuth";
@@ -13,7 +14,6 @@ import {
   editTagSchema,
   getTagSchema,
 } from "@/schemas/tag.schema";
-import { getAllTag } from "@/services/tag.service";
 import express, { type Router } from "express";
 const router: Router = express.Router();
 function tagRouter(): Router {
@@ -21,25 +21,26 @@ function tagRouter(): Router {
     "/tags/:id",
     validateResource(editTagSchema),
     requiredAuth,
-    checkPermission(["ADMIN", "MANAGER"]),
+    checkPermission(["ADMIN", "MANAGER", "WRITER"]),
     editTag
   );
   router.delete(
     "/tags/:id",
     validateResource(deleteTagSchema),
     requiredAuth,
-    checkPermission(["ADMIN", "MANAGER"]),
+    checkPermission(["ADMIN", "MANAGER", "WRITER"]),
     deleteTag
   );
-  router.get("/tags/:id", validateResource(getTagSchema), getTag);
   router.post(
     "/tags",
     validateResource(createTagSchema),
     requiredAuth,
-    checkPermission(["ADMIN", "MANAGER"]),
+    checkPermission(["ADMIN", "MANAGER", "WRITER"]),
     createNewTag
   );
-  router.get("/tags", getAllTag);
+  router.get("/tags/:idOrSlug", validateResource(getTagSchema), getTag);
+  router.get("/tags", getTags);
+
   return router;
 }
 
