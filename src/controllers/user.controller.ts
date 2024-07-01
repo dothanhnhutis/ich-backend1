@@ -24,6 +24,32 @@ import { Prisma } from "@prisma/client";
 import { isBase64Data, uploadImageCloudinary } from "@/utils/image";
 import { z } from "zod";
 import { omit } from "lodash";
+import prisma from "@/utils/db";
+
+export async function getUserTest(
+  req: Request<{}, {}, {}, { page: string; take: string }>,
+  res: Response
+) {
+  const { page, take } = req.query;
+  const currPage = parseInt(page ?? "1");
+  const k = parseInt(take ?? "10");
+
+  const skip = (currPage - 1) * k;
+  const total = await prisma.user.count({});
+
+  const users = await prisma.user.findMany({
+    take: k,
+    skip,
+  });
+
+  return res.send({
+    users,
+    metadata: {
+      hasNextPage: skip + k < total,
+      totalPage: Math.ceil(total / k),
+    },
+  });
+}
 
 export async function getUser(
   req: Request<
@@ -54,9 +80,9 @@ export async function getUser(
 }
 
 export async function currentUser(req: Request, res: Response) {
-  const { id } = req.session.user!;
-  const user = await getUserById(id);
-  res.status(StatusCodes.OK).json(user);
+  // const { id } = req.session.user!;
+  // const user = await getUserById(id);
+  res.status(StatusCodes.OK).json(req.user);
 }
 
 export async function disactivate(req: Request, res: Response) {

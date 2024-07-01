@@ -10,6 +10,7 @@ declare global {
       sessionID: string;
       session: SessionData;
       logout: () => Promise<void>;
+      user?: any;
     }
   }
 }

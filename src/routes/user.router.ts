@@ -9,9 +9,14 @@ import {
   getUser,
   sendVerifyEmail,
   editUser,
+  getUserTest,
 } from "@/controllers/user.controller";
 import { rateLimitSendEmail } from "@/middleware/rateLimit";
-import { checkActive, requiredAuth } from "@/middleware/requiredAuth";
+import {
+  authMiddleware,
+  checkActive,
+  requiredAuth,
+} from "@/middleware/requiredAuth";
 import validateResource from "@/middleware/validateResource";
 import {
   creatUserSchema,
@@ -23,21 +28,29 @@ const router: Router = express.Router();
 function userRouter(): Router {
   router.get(
     "/users/send-verify-email",
-    requiredAuth,
-    checkActive,
+    authMiddleware(["isActive", "isBlocked"]),
     rateLimitSendEmail,
     sendVerifyEmail
   );
-  router.get("/users/me", requiredAuth, checkActive, currentUser);
+  router.get(
+    "/users/me",
+    authMiddleware(["isActive", "isBlocked"]),
+    currentUser
+  );
+
+  router.get("/users/test", getUserTest);
   router.get("/users", getUser);
   router.post("/users", validateResource(creatUserSchema), creatNewUser);
   router.patch("/users", validateResource(creatUserSchema), editUser);
 
-  router.patch("/users/disactivate", requiredAuth, checkActive, disactivate);
+  router.patch(
+    "/users/disactivate",
+    authMiddleware(["emailVerified", "isActive", "isBlocked"]),
+    disactivate
+  );
   router.post(
     "/users/password",
-    requiredAuth,
-    checkActive,
+    authMiddleware(["emailVerified", "isActive", "isBlocked"]),
     validateResource(editPasswordSchema),
     editPassword
   );
@@ -45,8 +58,7 @@ function userRouter(): Router {
 
   router.patch(
     "/users",
-    requiredAuth,
-    checkActive,
+    authMiddleware(["emailVerified", "isActive", "isBlocked"]),
     validateResource(editProfileSchema),
     editProfile
   );

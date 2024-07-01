@@ -6,8 +6,8 @@ import { getUserById } from "@/services/user.service";
 type AuthMiddlewareCheckType = "emailVerified" | "isBlocked" | "isActive";
 
 export const authMiddleware =
-  ({ typesCheck }: { typesCheck?: AuthMiddlewareCheckType[] }): Middleware =>
-  async (req, res, next) => {
+  (typesCheck?: AuthMiddlewareCheckType[]): Middleware =>
+  async (req, _, next) => {
     if (!req.session.user) {
       throw new NotAuthorizedError();
     }
@@ -29,6 +29,7 @@ export const authMiddleware =
           "Your account has been locked please contact the administrator"
         );
       }
+      req.user = user;
     }
     next();
   };
