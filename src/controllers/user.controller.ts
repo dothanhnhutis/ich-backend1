@@ -18,65 +18,56 @@ import {
   getAllUser,
   getUserByEmail,
   getUserById,
-  getUserByToken,
+  getUserRecover,
 } from "@/services/user.service";
 import { Prisma } from "@prisma/client";
 import { isBase64Data, uploadImageCloudinary } from "@/utils/image";
 import { z } from "zod";
 import { omit } from "lodash";
-import prisma from "@/utils/db";
+import { signJWT, verifyJWT } from "@/utils/jwt";
 
-export async function getUserTest(
-  req: Request<{}, {}, {}, { page: string; take: string }>,
+// export async function getUserTest(
+//   req: Request<{}, {}, {}, { page: string; take: string }>,
+//   res: Response
+// ) {
+//   const { page, take } = req.query;
+//   const currPage = parseInt(page ?? "1");
+//   const k = parseInt(take ?? "10");
+
+//   const skip = (currPage - 1) * k;
+//   const total = await prisma.user.count({});
+
+//   const users = await prisma.user.findMany({
+//     take: k,
+//     skip,
+//   });
+
+//   return res.send({
+//     users,
+//     metadata: {
+//       hasNextPage: skip + k < total,
+//       totalPage: Math.ceil(total / k),
+//     },
+//   });
+// }
+
+export async function getUserRecoverToken(
+  req: Request<{ token: string }>,
   res: Response
 ) {
-  const { page, take } = req.query;
-  const currPage = parseInt(page ?? "1");
-  const k = parseInt(take ?? "10");
-
-  const skip = (currPage - 1) * k;
-  const total = await prisma.user.count({});
-
-  const users = await prisma.user.findMany({
-    take: k,
-    skip,
-  });
-
-  return res.send({
-    users,
-    metadata: {
-      hasNextPage: skip + k < total,
-      totalPage: Math.ceil(total / k),
-    },
-  });
+  const { token } = req.params;
+  const data = verifyJWT<{
+    session: string;
+  }>(token, configs.JWT_SECRET);
+  if (!data) throw new NotFoundError();
+  const user = await getUserRecover(data.session);
+  if (!user) throw new NotFoundError();
+  return res.status(StatusCodes.OK).json(user);
 }
 
-export async function getUser(
-  req: Request<
-    {},
-    {},
-    {},
-    {
-      tokenType: "reactivate" | "change-email" | "recover-password";
-      token: string;
-    }
-  >,
-  res: Response
-) {
-  const { token, tokenType } = req.query;
-  if (token && tokenType) {
-    const user = await getUserByToken(tokenType, token);
-    if (!user) throw new NotFoundError();
-    return res.status(200).json(user);
-  } else {
-    if (!req.session.user) throw new NotFoundError();
-    const user = await getUserById(req.session.user.id);
-
-    if (user!.role != "ADMIN") throw new NotFoundError();
-
-    const users = await getAllUser();
-    return res.status(200).json(users);
-  }
+export async function getUser(req: Request, res: Response) {
+  const users = await getAllUser();
+  return res.status(200).json(users);
 }
 
 export async function currentUser(req: Request, res: Response) {
@@ -194,13 +185,17 @@ export async function changeEmail(
   const user = await getUserById(id);
   if (!user) throw new NotFoundError();
 
+  if (email == user.email)
+    throw new BadRequestError(
+      "The new email cannot be the same as the old email"
+    );
+
   const checkNewEmail = await getUserByEmail(email);
-  if (checkNewEmail) throw new BadRequestError("Email already exists");
+  if (!checkNewEmail) throw new BadRequestError("Email already exists");
 
   const randomBytes: Buffer = await Promise.resolve(crypto.randomBytes(20));
-  const randomCharacters: string = randomBytes.toString("hex");
-  const verificationLink = `${configs.CLIENT_URL}/confirm-email?v_token=${randomCharacters}`;
-  const date: Date = new Date(Date.now() + 24 * 60 * 60000);
+  const randomCharacters = randomBytes.toString("hex");
+  const date = new Date(Date.now() + 24 * 60 * 60000);
 
   await editUserById(id, {
     email,
@@ -208,6 +203,15 @@ export async function changeEmail(
     emailVerificationExpires: date,
     emailVerificationToken: randomCharacters,
   });
+
+  const token = signJWT(
+    {
+      session: randomCharacters,
+      iat: Math.floor(date.getTime() / 1000),
+    },
+    configs.JWT_SECRET
+  );
+  const verificationLink = `${configs.CLIENT_URL}/confirm-email?token=${token}`;
 
   await sendMail({
     template: emaiEnum.VERIFY_EMAIL,
@@ -228,20 +232,28 @@ export async function sendVerifyEmail(req: Request, res: Response) {
   const user = await getUserById(id);
 
   if (!user) throw new NotFoundError();
-  let verificationLink = `${configs.CLIENT_URL}/auth/confirm-email?v_token=${user.emailVerificationToken}`;
-  if (
-    !user.emailVerificationExpires ||
-    user.emailVerificationExpires.getTime() < Date.now()
-  ) {
-    const randomBytes: Buffer = await Promise.resolve(crypto.randomBytes(20));
-    const randomCharacters: string = randomBytes.toString("hex");
-    verificationLink = `${configs.CLIENT_URL}/auth/confirm-email?v_token=${randomCharacters}`;
-    const date: Date = new Date(Date.now() + 24 * 60 * 60000);
+  // let verificationLink = `${configs.CLIENT_URL}/auth/confirm-email?token=${user.emailVerificationToken}`;
+  const randomBytes: Buffer = await Promise.resolve(crypto.randomBytes(20));
+  let randomCharacters = user.emailVerificationToken;
+  let date = user.emailVerificationExpires;
+
+  if (!randomCharacters || !date || date.getTime() < Date.now()) {
+    randomCharacters = randomBytes.toString("hex");
+    date = new Date(Date.now() + 24 * 60 * 60000);
     await editUserById(id, {
       emailVerificationToken: randomCharacters,
       emailVerificationExpires: date,
     });
   }
+
+  const token = signJWT(
+    {
+      session: randomCharacters,
+      iat: Math.floor(date.getTime() / 1000),
+    },
+    configs.JWT_SECRET
+  );
+  const verificationLink = `${configs.CLIENT_URL}/auth/confirm-email?token=${token}`;
 
   await sendMail({
     template: emaiEnum.VERIFY_EMAIL,

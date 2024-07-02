@@ -20,6 +20,7 @@ import { google } from "googleapis";
 import { Prisma } from "@prisma/client";
 import { generateReactiveToken, getUserByEmail } from "@/services/user.service";
 import { parse } from "cookie";
+import { signJWT, verifyJWT } from "@/utils/jwt";
 
 type GoogleUserInfo = {
   id: string;
@@ -202,9 +203,18 @@ export async function signUp(
 
   const randomBytes: Buffer = await Promise.resolve(crypto.randomBytes(20));
   const randomCharacters: string = randomBytes.toString("hex");
-  const verificationLink = `${configs.CLIENT_URL}/auth/confirm-email?v_token=${randomCharacters}`;
   const date: Date = new Date(Date.now() + 24 * 60 * 60000);
 
+  const token = signJWT(
+    {
+      session: randomCharacters,
+      iat: Math.floor(date.getTime() / 1000),
+    },
+    configs.JWT_SECRET
+  );
+
+  const verificationLink = `${configs.CLIENT_URL}/auth/confirm-email?token=${token}`;
+  console.log(token);
   const hash = hashData(password);
   await prisma.user.create({
     data: {
@@ -216,14 +226,14 @@ export async function signUp(
     },
   });
 
-  await sendMail({
-    template: emaiEnum.VERIFY_EMAIL,
-    receiver: email,
-    locals: {
-      username,
-      verificationLink,
-    },
-  });
+  // await sendMail({
+  //   template: emaiEnum.VERIFY_EMAIL,
+  //   receiver: email,
+  //   locals: {
+  //     username,
+  //     verificationLink,
+  //   },
+  // });
 
   return res.status(StatusCodes.CREATED).send({
     message:
@@ -236,20 +246,22 @@ export async function verifyEmail(
   res: Response
 ) {
   const { token } = req.params;
+  const data = verifyJWT<{ session: string }>(token, configs.JWT_SECRET);
+  if (!data) throw new NotFoundError();
   const user = await prisma.user.findUnique({
-    where: { emailVerificationToken: token },
+    where: {
+      emailVerificationToken: data.session,
+      emailVerificationExpires: { gte: new Date() },
+    },
   });
-  if (
-    !user ||
-    user.emailVerified ||
-    !user.emailVerificationExpires ||
-    user.emailVerificationExpires.getTime() < Date.now()
-  )
-    throw new NotFoundError();
+  if (!user) throw new NotFoundError();
+
   await prisma.user.update({
-    where: { emailVerificationToken: token },
+    where: { emailVerificationToken: data.session },
     data: {
       emailVerified: true,
+      emailVerificationToken: "",
+      emailVerificationExpires: new Date(),
     },
   });
   return res.status(StatusCodes.OK).json({
@@ -273,13 +285,11 @@ export async function recover(
 
   const randomBytes: Buffer = await Promise.resolve(crypto.randomBytes(20));
   let randomCharacters = existingUser.passwordResetToken;
-  if (
-    !randomCharacters ||
-    !existingUser.passwordResetExpires ||
-    existingUser.passwordResetExpires.getTime() < Date.now()
-  ) {
+  let date = existingUser.passwordResetExpires;
+
+  if (!randomCharacters || !date || date.getTime() < Date.now()) {
     randomCharacters = randomBytes.toString("hex");
-    const date: Date = new Date(Date.now() + 4 * 60 * 60000);
+    date = new Date(Date.now() + 4 * 60 * 60000);
     await prisma.user.update({
       where: {
         id: existingUser.id,
@@ -290,16 +300,23 @@ export async function recover(
       },
     });
   }
-
-  const recoverLink = `${configs.CLIENT_URL}/auth/reset-password?token=${randomCharacters}`;
-  await sendMail({
-    template: emaiEnum.RECOVER_ACCOUNT,
-    receiver: email,
-    locals: {
-      username: existingUser.username,
-      recoverLink,
+  const token = signJWT(
+    {
+      session: randomCharacters,
+      iat: Math.floor(date.getTime() / 1000),
     },
-  });
+    configs.JWT_SECRET
+  );
+  console.log(token);
+  const recoverLink = `${configs.CLIENT_URL}/auth/reset-password?token=${token}`;
+  // await sendMail({
+  //   template: emaiEnum.RECOVER_ACCOUNT,
+  //   receiver: email,
+  //   locals: {
+  //     username: existingUser.username,
+  //     recoverLink,
+  //   },
+  // });
 
   return res.status(StatusCodes.OK).send({
     message: "Send email success",
@@ -312,9 +329,11 @@ export async function resetPassword(
 ) {
   const { token } = req.params;
   const { password } = req.body;
+  const data = verifyJWT<{ session: string }>(token, configs.JWT_SECRET);
+  if (!data) throw new BadRequestError("Reset token has expired");
   const existingUser = await prisma.user.findFirst({
     where: {
-      passwordResetToken: token,
+      passwordResetToken: data.session,
       passwordResetExpires: { gte: new Date() },
     },
   });
@@ -326,7 +345,7 @@ export async function resetPassword(
     },
     data: {
       password: hash,
-      passwordResetExpires: null,
+      passwordResetExpires: new Date(),
       passwordResetToken: null,
     },
   });
@@ -375,20 +394,16 @@ export async function sendReactivateAccount(req: Request, res: Response) {
   });
 
   if (!existingUser) throw new NotFoundError();
-  // if (!existingUser.emailVerified)
-  //   throw new BadRequestError(
-  //     "Please verify your email address after using password recovery"
-  //   );
-
+  // console.log(token)
   const reactivateLink = `${configs.CLIENT_URL}/auth/reactivate?token=${existingUser.activeToken}`;
-  await sendMail({
-    template: emaiEnum.REACTIVATE_ACCOUNT,
-    receiver: existingUser.email,
-    locals: {
-      username: existingUser.username,
-      reactivateLink,
-    },
-  });
+  // await sendMail({
+  //   template: emaiEnum.REACTIVATE_ACCOUNT,
+  //   receiver: existingUser.email,
+  //   locals: {
+  //     username: existingUser.username,
+  //     reactivateLink,
+  //   },
+  // });
   return res.clearCookie("eid").status(StatusCodes.OK).send({
     message: "Send email success",
   });

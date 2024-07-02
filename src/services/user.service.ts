@@ -1,11 +1,9 @@
-import { NotFoundError } from "@/error-handler";
-import { EditUser } from "@/schemas/user.schema";
 import prisma from "@/utils/db";
 import { isBase64Data, uploadImageCloudinary } from "@/utils/image";
 import { Prisma } from "@prisma/client";
 import { z } from "zod";
 
-const userSelect: Prisma.UserSelect = {
+const userPublicInfo: Prisma.UserSelect = {
   id: true,
   email: true,
   emailVerified: true,
@@ -25,7 +23,7 @@ export async function getUserById(id: string) {
     where: {
       id,
     },
-    select: userSelect,
+    select: userPublicInfo,
   });
   return user;
 }
@@ -35,7 +33,7 @@ export async function getUserByEmail(email: string) {
     where: {
       email,
     },
-    select: userSelect,
+    select: userPublicInfo,
   });
   return user;
 }
@@ -45,36 +43,18 @@ export async function getAllUser() {
     where: {
       role: { not: "ADMIN" },
     },
-    select: userSelect,
+    select: userPublicInfo,
   });
   return users;
 }
 
-export async function getUserByToken(
-  tokenType: "reactivate" | "change-email" | "recover-password",
-  token: string
-) {
-  let where: Prisma.UserFindFirstArgs["where"];
-
-  if (tokenType == "change-email") {
-    where = {
-      emailVerificationToken: token,
-      emailVerificationExpires: { gte: new Date() },
-    };
-  } else if (tokenType == "recover-password") {
-    where = {
+export async function getUserRecover(token: string) {
+  const user = await prisma.user.findFirst({
+    where: {
       passwordResetToken: token,
       passwordResetExpires: { gte: new Date() },
-    };
-  } else {
-    where = {
-      activeToken: token,
-      activeExpires: { gte: new Date() },
-    };
-  }
-  const user = await prisma.user.findFirst({
-    where,
-    select: userSelect,
+    },
+    select: userPublicInfo,
   });
   return user;
 }

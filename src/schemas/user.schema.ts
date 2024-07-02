@@ -124,3 +124,18 @@ export type EditProfile = z.infer<typeof editProfileSchema>;
 export type EditPicture = z.infer<typeof editPictureSchema>;
 export type CreateUser = z.infer<typeof creatUserSchema>;
 export type EditUser = z.infer<typeof editUserSchema>;
+export type Role = CreateUser["body"]["role"];
+export type CurrentUser = {
+  id: string;
+  email: string;
+  emailVerified: boolean;
+  role: Role;
+  isActive: boolean;
+  username: string;
+  isBlocked: boolean;
+  phone: string;
+  picture: string;
+  address: string;
+  createdAt: Date;
+  updatedAt: Date;
+};

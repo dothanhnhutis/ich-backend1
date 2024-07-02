@@ -1,6 +1,5 @@
 import {
   changeEmail,
-  creatNewUser,
   currentUser,
   disactivate,
   editProfile,
@@ -8,9 +7,9 @@ import {
   editPassword,
   getUser,
   sendVerifyEmail,
-  editUser,
-  getUserTest,
+  getUserRecoverToken,
 } from "@/controllers/user.controller";
+import checkPermission from "@/middleware/checkPermission";
 import { rateLimitSendEmail } from "@/middleware/rateLimit";
 import {
   authMiddleware,
@@ -38,10 +37,16 @@ function userRouter(): Router {
     currentUser
   );
 
-  router.get("/users/test", getUserTest);
-  router.get("/users", getUser);
-  router.post("/users", validateResource(creatUserSchema), creatNewUser);
-  router.patch("/users", validateResource(creatUserSchema), editUser);
+  router.get("/users/recover/:token", getUserRecoverToken);
+  router.get(
+    "/users",
+    authMiddleware(["emailVerified", "isActive", "isBlocked"]),
+    checkPermission(["ADMIN"]),
+    getUser
+  );
+  // router.get("/users/test", getUserTest);
+  // router.post("/users", validateResource(creatUserSchema), creatNewUser);
+  // router.patch("/users", validateResource(creatUserSchema), editUser);
 
   router.patch(
     "/users/disactivate",

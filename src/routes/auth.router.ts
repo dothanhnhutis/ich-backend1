@@ -29,9 +29,14 @@ function authRouter(): Router {
   router.get("/auth/google", signInGoogle);
   router.get("/auth/google/callback", signInGoogleCallBack);
 
+  router.post(
+    "/auth/check/email",
+    validateResource(checkEmailCheckSchema),
+    checkActiveAccount
+  );
   router.post("/auth/signin", validateResource(signinSchema), signIn);
-
   router.delete("/auth/signout", signOut);
+
   router.post("/auth/signup", validateResource(signupSchema), signUp);
   router.get(
     "/auth/confirm-email/:token",
@@ -45,17 +50,10 @@ function authRouter(): Router {
     validateResource(sendRecoverEmailSchema),
     recover
   );
-
   router.patch(
     "/auth/reset-password/:token",
     validateResource(resetPasswordSchema),
     resetPassword
-  );
-
-  router.post(
-    "/auth/check/email",
-    validateResource(checkEmailCheckSchema),
-    checkActiveAccount
   );
 
   router.get(
@@ -63,7 +61,6 @@ function authRouter(): Router {
     validateResource(reactivateAccountSchema),
     reactivateAccount
   );
-
   router.get("/auth/reactivate", sendReactivateAccount);
 
   return router;
