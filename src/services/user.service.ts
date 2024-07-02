@@ -3,7 +3,7 @@ import { isBase64Data, uploadImageCloudinary } from "@/utils/image";
 import { Prisma } from "@prisma/client";
 import { z } from "zod";
 
-const userPublicInfo: Prisma.UserSelect = {
+export const userPublicInfo: Prisma.UserSelect = {
   id: true,
   email: true,
   emailVerified: true,

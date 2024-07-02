@@ -9,7 +9,7 @@ import {
   signInGoogleCallBack,
   reactivateAccount,
   sendReactivateAccount,
-  checkActiveAccount,
+  checkDisactivedAccount,
 } from "@/controllers/auth.controller";
 import { rateLimitRecover } from "@/middleware/rateLimit";
 import validateResource from "@/middleware/validateResource";
@@ -30,9 +30,9 @@ function authRouter(): Router {
   router.get("/auth/google/callback", signInGoogleCallBack);
 
   router.post(
-    "/auth/check/email",
+    "/auth/check/account",
     validateResource(checkEmailCheckSchema),
-    checkActiveAccount
+    checkDisactivedAccount
   );
   router.post("/auth/signin", validateResource(signinSchema), signIn);
   router.delete("/auth/signout", signOut);

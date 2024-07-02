@@ -21,6 +21,10 @@ import { Prisma } from "@prisma/client";
 import { generateReactiveToken, getUserByEmail } from "@/services/user.service";
 import { parse } from "cookie";
 import { signJWT, verifyJWT } from "@/utils/jwt";
+import {
+  getGoogleProvider,
+  linkAccountWithGoogleProvider,
+} from "@/services/link.service";
 
 type GoogleUserInfo = {
   id: string;
@@ -73,27 +77,16 @@ export async function signInGoogleCallBack(
     });
 
     const userInfo = (await oauth2.userinfo.get()).data as GoogleUserInfo;
-    let userProvider = await prisma.linkProvider.findUnique({
-      where: {
-        provider_providerId: {
-          provider: "google",
-          providerId: userInfo.id,
-        },
-      },
-      include: {
-        user: {
-          select: {
-            id: true,
-            role: true,
-            isBlocked: true,
-            emailVerified: true,
-            isActive: true,
-          },
-        },
-      },
-    });
+    let userProvider = await getGoogleProvider(userInfo.id);
 
     if (!userProvider) {
+      // const existAccount = await getUserByEmail(userInfo.email);
+
+      // if (existAccount)
+      //   throw new BadRequestError(
+      //     "The Email was registered. You can log in with email and password"
+      //   );
+
       const data: Prisma.UserCreateInput = {
         email: userInfo.email,
         emailVerified: userInfo.verified_email,
@@ -114,28 +107,7 @@ export async function signInGoogleCallBack(
         data,
       });
 
-      userProvider = await prisma.linkProvider.create({
-        data: {
-          provider: "google",
-          providerId: userInfo.id,
-          user: {
-            connect: {
-              id: user.id,
-            },
-          },
-        },
-        include: {
-          user: {
-            select: {
-              id: true,
-              role: true,
-              isBlocked: true,
-              emailVerified: true,
-              isActive: true,
-            },
-          },
-        },
-      });
+      userProvider = await linkAccountWithGoogleProvider(userInfo.id, user.id);
     }
 
     if (userProvider.user.isBlocked)
@@ -354,22 +326,31 @@ export async function resetPassword(
   });
 }
 
-export async function checkActiveAccount(
+export async function checkDisactivedAccount(
   req: Request<{}, {}, CheckEmailDisactive["body"]>,
   res: Response
 ) {
   const { email } = req.body;
   const user = await getUserByEmail(email);
-  if (!user || user.isActive)
-    throw new BadRequestError("Your account is active or not sign in");
+
+  if (!user)
+    return res.clearCookie("eid").status(StatusCodes.OK).json({
+      message: "You can use this email to register for an account",
+    });
+
+  if (user.isActive)
+    return res.clearCookie("eid").status(StatusCodes.OK).json({
+      message: "Your account is active",
+    });
 
   const randomBytes: Buffer = await Promise.resolve(crypto.randomBytes(20));
-  let randomCharacters: string = user.activeToken || "";
-  let date: Date = user.activeExpires || new Date();
+  let randomCharacters = user.activeToken;
+  let date = user.activeExpires;
   if (
-    user.activeToken == "" ||
-    !user.activeExpires ||
-    user.activeExpires.getTime() <= Date.now()
+    !randomCharacters ||
+    randomCharacters == "" ||
+    !date ||
+    date.getTime() <= Date.now()
   ) {
     randomCharacters = randomBytes.toString("hex");
     date = new Date(Date.now() + 4 * 60 * 60000);
@@ -378,24 +359,40 @@ export async function checkActiveAccount(
       activeExpires: date,
     });
   }
+
+  const token = signJWT(
+    {
+      session: randomCharacters,
+      iat: Math.floor(date.getTime() / 1000),
+    },
+    configs.JWT_SECRET
+  );
+
   return res
-    .status(StatusCodes.OK)
-    .cookie("eid", randomCharacters, { expires: date })
+    .status(StatusCodes.BAD_REQUEST)
+    .cookie("eid", token, { expires: date })
     .json({ message: "Your account is currently closed" });
 }
 
 export async function sendReactivateAccount(req: Request, res: Response) {
   const cookies = parse(req.get("cookie") || "");
+  if (!cookies["eid"]) throw new NotFoundError();
+  const data = verifyJWT<{ session: string }>(
+    cookies["eid"],
+    configs.JWT_SECRET
+  );
+  if (!data) throw new NotFoundError();
+
   const existingUser = await prisma.user.findUnique({
     where: {
-      activeToken: cookies["eid"] || "",
+      activeToken: data.session,
       activeExpires: { gte: new Date() },
     },
   });
 
   if (!existingUser) throw new NotFoundError();
-  // console.log(token)
-  const reactivateLink = `${configs.CLIENT_URL}/auth/reactivate?token=${existingUser.activeToken}`;
+
+  const reactivateLink = `${configs.CLIENT_URL}/auth/reactivate?token=${cookies["eid"]}`;
   // await sendMail({
   //   template: emaiEnum.REACTIVATE_ACCOUNT,
   //   receiver: existingUser.email,
@@ -414,8 +411,11 @@ export async function reactivateAccount(
   res: Response
 ) {
   const { token } = req.params;
+  const data = verifyJWT<{ session: string }>(token, configs.JWT_SECRET);
+  if (!data) throw new NotFoundError();
+
   const user = await prisma.user.findUnique({
-    where: { activeToken: token },
+    where: { activeToken: data.session },
   });
   if (!user) throw new NotFoundError();
   await prisma.user.update({
