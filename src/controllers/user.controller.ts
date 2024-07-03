@@ -18,7 +18,7 @@ import {
   getAllUser,
   getUserByEmail,
   getUserById,
-  getUserRecover,
+  getUserByRecoverToken,
 } from "@/services/user.service";
 import { Prisma } from "@prisma/client";
 import { isBase64Data, uploadImageCloudinary } from "@/utils/image";
@@ -60,7 +60,7 @@ export async function getUserRecoverToken(
     session: string;
   }>(token, configs.JWT_SECRET);
   if (!data) throw new NotFoundError();
-  const user = await getUserRecover(data.session);
+  const user = await getUserByRecoverToken(data.session);
   if (!user) throw new NotFoundError();
   return res.status(StatusCodes.OK).json(user);
 }

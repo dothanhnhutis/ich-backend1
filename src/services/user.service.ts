@@ -1,4 +1,5 @@
 import prisma from "@/utils/db";
+import { hashData } from "@/utils/helper";
 import { isBase64Data, uploadImageCloudinary } from "@/utils/image";
 import { Prisma } from "@prisma/client";
 import { z } from "zod";
@@ -18,6 +19,35 @@ export const userPublicInfo: Prisma.UserSelect = {
   updatedAt: true,
 };
 
+//CREATE
+export async function createUser(
+  data: Omit<Prisma.UserCreateInput, "Post" | "linkProvider">
+) {
+  return await prisma.user.create({
+    data,
+  });
+}
+
+export async function createUserWithEmailAndPass(
+  username: string,
+  email: string,
+  password: string,
+  emailVerificationToken: string,
+  emailVerificationExpires: Date
+) {
+  const hash = hashData(password);
+  return await prisma.user.create({
+    data: {
+      email: email,
+      password: hash,
+      username,
+      emailVerificationToken,
+      emailVerificationExpires,
+    },
+  });
+}
+
+// READ
 export async function getUserById(id: string) {
   const user = await prisma.user.findUnique({
     where: {
@@ -38,17 +68,16 @@ export async function getUserByEmail(email: string) {
   return user;
 }
 
-export async function getAllUser() {
-  const users = await prisma.user.findMany({
+export async function getUSerByActiveToken(token: string) {
+  return await prisma.user.findUnique({
     where: {
-      role: { not: "ADMIN" },
+      activeToken: token,
+      activeExpires: { gte: new Date() },
     },
-    select: userPublicInfo,
   });
-  return users;
 }
 
-export async function getUserRecover(token: string) {
+export async function getUserByRecoverToken(token: string) {
   const user = await prisma.user.findFirst({
     where: {
       passwordResetToken: token,
@@ -59,7 +88,75 @@ export async function getUserRecover(token: string) {
   return user;
 }
 
-export async function generateReactiveToken(
+export async function getUserByVerificationToken(token: string) {
+  const user = await prisma.user.findUnique({
+    where: {
+      emailVerificationToken: token,
+      emailVerificationExpires: { gte: new Date() },
+    },
+  });
+  return user;
+}
+
+export async function getAllUser() {
+  const users = await prisma.user.findMany({
+    where: {
+      role: { not: "ADMIN" },
+    },
+    select: userPublicInfo,
+  });
+  return users;
+}
+// UPDATE
+
+export async function verifyEmailByToken(token: string) {
+  await prisma.user.update({
+    where: { emailVerificationToken: token },
+    data: {
+      emailVerified: true,
+      emailVerificationToken: null,
+      emailVerificationExpires: new Date(),
+    },
+  });
+}
+
+export async function activeUserByToken(token: string) {
+  await prisma.user.update({
+    where: { activeToken: token },
+    data: {
+      isActive: true,
+      activeExpires: new Date(),
+      activeToken: null,
+    },
+  });
+}
+
+export async function updatePasswordById(id: string, password: string) {
+  const hash = hashData(password);
+  await prisma.user.update({
+    where: {
+      id,
+    },
+    data: {
+      password: hash,
+      passwordResetExpires: new Date(),
+      passwordResetToken: null,
+    },
+  });
+}
+export async function generateRecoverTokenById(
+  id: string,
+  data: { passwordResetExpires: Date; passwordResetToken: string }
+) {
+  const user = await prisma.user.update({
+    where: {
+      id,
+    },
+    data,
+  });
+}
+
+export async function generateReactiveTokenById(
   id: string,
   data: { activeExpires: Date; activeToken: string }
 ) {
@@ -119,13 +216,5 @@ export async function editUserById(
       id,
     },
     data: data,
-  });
-}
-
-export async function createUser(
-  data: Omit<Prisma.UserCreateInput, "Post" | "linkProvider">
-) {
-  return await prisma.user.create({
-    data,
   });
 }

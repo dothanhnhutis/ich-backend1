@@ -18,7 +18,18 @@ import {
 import { emaiEnum, sendMail } from "@/utils/nodemailer";
 import { google } from "googleapis";
 import { Prisma } from "@prisma/client";
-import { generateReactiveToken, getUserByEmail } from "@/services/user.service";
+import {
+  activeUserByToken,
+  createUserWithEmailAndPass,
+  generateReactiveTokenById,
+  generateRecoverTokenById,
+  getUSerByActiveToken,
+  getUserByEmail,
+  getUserByRecoverToken,
+  getUserByVerificationToken,
+  updatePasswordById,
+  verifyEmailByToken,
+} from "@/services/user.service";
 import { parse } from "cookie";
 import { signJWT, verifyJWT } from "@/utils/jwt";
 import {
@@ -44,10 +55,14 @@ const oAuth2Client = new google.auth.OAuth2(
 );
 
 const SESSION_MAX_AGE = 30 * 24 * 60 * 60000;
-const SUCCESS_REDIRECT = `${configs.CLIENT_URL}/user/profile`;
+const SUCCESS_REDIRECT = `${configs.CLIENT_URL}/account/profile`;
 const ERROR_REDIRECT = `${configs.CLIENT_URL}/auth/error`;
+const RECOVER_SESSION_NAME = "eid";
 
-export async function signInGoogle(req: Request, res: Response) {
+export async function signInGoogle(
+  req: Request<{}, {}, {}, { redir?: string }>,
+  res: Response
+) {
   const url = oAuth2Client.generateAuthUrl({
     access_type: "offline",
     scope: [
@@ -55,16 +70,18 @@ export async function signInGoogle(req: Request, res: Response) {
       "https://www.googleapis.com/auth/userinfo.profile",
       "openid",
     ],
+    state: req.query.redir || undefined,
     prompt: "consent",
   });
-  res.redirect(url);
+  return res.redirect(url);
 }
 
 export async function signInGoogleCallBack(
-  req: Request<{}, {}, {}, { code?: string; error?: string }>,
+  req: Request<{}, {}, {}, { code?: string; error?: string; state: string }>,
   res: Response
 ) {
-  const { code, error } = req.query;
+  const { code, error, state } = req.query;
+  console.log(req.query);
   if (error) res.redirect(ERROR_REDIRECT);
 
   if (code) {
@@ -80,12 +97,10 @@ export async function signInGoogleCallBack(
     let userProvider = await getGoogleProvider(userInfo.id);
 
     if (!userProvider) {
-      // const existAccount = await getUserByEmail(userInfo.email);
-
-      // if (existAccount)
-      //   throw new BadRequestError(
-      //     "The Email was registered. You can log in with email and password"
-      //   );
+      const existAccount = await getUserByEmail(userInfo.email);
+      console.log(state);
+      if (existAccount)
+        return res.redirect(`${configs.CLIENT_URL + state}?error=credential`);
 
       const data: Prisma.UserCreateInput = {
         email: userInfo.email,
@@ -123,7 +138,7 @@ export async function signInGoogleCallBack(
     };
     req.session.cookie.expires = new Date(Date.now() + SESSION_MAX_AGE);
 
-    res.redirect(SUCCESS_REDIRECT);
+    return res.redirect(SUCCESS_REDIRECT);
   }
 }
 
@@ -132,11 +147,7 @@ export async function signIn(
   res: Response
 ) {
   const { email, password } = req.body;
-  const user = await prisma.user.findUnique({
-    where: {
-      email,
-    },
-  });
+  const user = await getUserByEmail(email);
 
   if (!user || !user.password || !(await compareData(user.password, password)))
     throw new BadRequestError("Invalid email or password");
@@ -168,9 +179,7 @@ export async function signUp(
   res: Response
 ) {
   const { email, password, username } = req.body;
-  const user = await prisma.user.findUnique({
-    where: { email },
-  });
+  const user = await getUserByEmail(email);
   if (user) throw new BadRequestError("User already exists");
 
   const randomBytes: Buffer = await Promise.resolve(crypto.randomBytes(20));
@@ -186,17 +195,13 @@ export async function signUp(
   );
 
   const verificationLink = `${configs.CLIENT_URL}/auth/confirm-email?token=${token}`;
-  console.log(token);
-  const hash = hashData(password);
-  await prisma.user.create({
-    data: {
-      email: email,
-      password: hash,
-      username,
-      emailVerificationToken: randomCharacters,
-      emailVerificationExpires: date,
-    },
-  });
+  await createUserWithEmailAndPass(
+    username,
+    email,
+    password,
+    randomCharacters,
+    date
+  );
 
   // await sendMail({
   //   template: emaiEnum.VERIFY_EMAIL,
@@ -220,22 +225,10 @@ export async function verifyEmail(
   const { token } = req.params;
   const data = verifyJWT<{ session: string }>(token, configs.JWT_SECRET);
   if (!data) throw new NotFoundError();
-  const user = await prisma.user.findUnique({
-    where: {
-      emailVerificationToken: data.session,
-      emailVerificationExpires: { gte: new Date() },
-    },
-  });
+  const user = await getUserByVerificationToken(data.session);
   if (!user) throw new NotFoundError();
+  await verifyEmailByToken(data.session);
 
-  await prisma.user.update({
-    where: { emailVerificationToken: data.session },
-    data: {
-      emailVerified: true,
-      emailVerificationToken: "",
-      emailVerificationExpires: new Date(),
-    },
-  });
   return res.status(StatusCodes.OK).json({
     message: "verify email success",
   });
@@ -246,9 +239,7 @@ export async function recover(
   res: Response
 ) {
   const { email } = req.body;
-  const existingUser = await prisma.user.findUnique({
-    where: { email },
-  });
+  const existingUser = await getUserByEmail(email);
   if (!existingUser) throw new BadRequestError("Invalid email");
   if (!existingUser.emailVerified)
     throw new BadRequestError(
@@ -262,14 +253,9 @@ export async function recover(
   if (!randomCharacters || !date || date.getTime() < Date.now()) {
     randomCharacters = randomBytes.toString("hex");
     date = new Date(Date.now() + 4 * 60 * 60000);
-    await prisma.user.update({
-      where: {
-        id: existingUser.id,
-      },
-      data: {
-        passwordResetToken: randomCharacters,
-        passwordResetExpires: date,
-      },
+    await generateRecoverTokenById(existingUser.id, {
+      passwordResetToken: randomCharacters,
+      passwordResetExpires: date,
     });
   }
   const token = signJWT(
@@ -279,7 +265,6 @@ export async function recover(
     },
     configs.JWT_SECRET
   );
-  console.log(token);
   const recoverLink = `${configs.CLIENT_URL}/auth/reset-password?token=${token}`;
   // await sendMail({
   //   template: emaiEnum.RECOVER_ACCOUNT,
@@ -303,24 +288,11 @@ export async function resetPassword(
   const { password } = req.body;
   const data = verifyJWT<{ session: string }>(token, configs.JWT_SECRET);
   if (!data) throw new BadRequestError("Reset token has expired");
-  const existingUser = await prisma.user.findFirst({
-    where: {
-      passwordResetToken: data.session,
-      passwordResetExpires: { gte: new Date() },
-    },
-  });
+
+  const existingUser = await getUserByRecoverToken(data.session);
   if (!existingUser) throw new BadRequestError("Reset token has expired");
-  const hash = hashData(password);
-  await prisma.user.update({
-    where: {
-      id: existingUser.id,
-    },
-    data: {
-      password: hash,
-      passwordResetExpires: new Date(),
-      passwordResetToken: null,
-    },
-  });
+  await updatePasswordById(existingUser.id, password);
+
   return res.status(StatusCodes.OK).send({
     message: "Reset password success",
   });
@@ -334,12 +306,12 @@ export async function checkDisactivedAccount(
   const user = await getUserByEmail(email);
 
   if (!user)
-    return res.clearCookie("eid").status(StatusCodes.OK).json({
+    return res.clearCookie(RECOVER_SESSION_NAME).status(StatusCodes.OK).json({
       message: "You can use this email to register for an account",
     });
 
   if (user.isActive)
-    return res.clearCookie("eid").status(StatusCodes.OK).json({
+    return res.clearCookie(RECOVER_SESSION_NAME).status(StatusCodes.OK).json({
       message: "Your account is active",
     });
 
@@ -353,8 +325,8 @@ export async function checkDisactivedAccount(
     date.getTime() <= Date.now()
   ) {
     randomCharacters = randomBytes.toString("hex");
-    date = new Date(Date.now() + 4 * 60 * 60000);
-    await generateReactiveToken(user.id, {
+    date = new Date(Date.now() + 5 * 60000);
+    await generateReactiveTokenById(user.id, {
       activeToken: randomCharacters,
       activeExpires: date,
     });
@@ -370,29 +342,25 @@ export async function checkDisactivedAccount(
 
   return res
     .status(StatusCodes.BAD_REQUEST)
-    .cookie("eid", token, { expires: date })
+    .cookie(RECOVER_SESSION_NAME, token, { expires: date })
     .json({ message: "Your account is currently closed" });
 }
 
 export async function sendReactivateAccount(req: Request, res: Response) {
   const cookies = parse(req.get("cookie") || "");
-  if (!cookies["eid"]) throw new NotFoundError();
+  if (!cookies[RECOVER_SESSION_NAME]) throw new NotFoundError();
   const data = verifyJWT<{ session: string }>(
-    cookies["eid"],
+    cookies[RECOVER_SESSION_NAME],
     configs.JWT_SECRET
   );
   if (!data) throw new NotFoundError();
 
-  const existingUser = await prisma.user.findUnique({
-    where: {
-      activeToken: data.session,
-      activeExpires: { gte: new Date() },
-    },
-  });
+  const existingUser = await getUSerByActiveToken(data.session);
 
   if (!existingUser) throw new NotFoundError();
+  console.log(cookies[RECOVER_SESSION_NAME]);
 
-  const reactivateLink = `${configs.CLIENT_URL}/auth/reactivate?token=${cookies["eid"]}`;
+  const reactivateLink = `${configs.CLIENT_URL}/auth/reactivate?token=${cookies[RECOVER_SESSION_NAME]}`;
   // await sendMail({
   //   template: emaiEnum.REACTIVATE_ACCOUNT,
   //   receiver: existingUser.email,
@@ -401,7 +369,7 @@ export async function sendReactivateAccount(req: Request, res: Response) {
   //     reactivateLink,
   //   },
   // });
-  return res.clearCookie("eid").status(StatusCodes.OK).send({
+  return res.clearCookie(RECOVER_SESSION_NAME).status(StatusCodes.OK).send({
     message: "Send email success",
   });
 }
@@ -413,17 +381,10 @@ export async function reactivateAccount(
   const { token } = req.params;
   const data = verifyJWT<{ session: string }>(token, configs.JWT_SECRET);
   if (!data) throw new NotFoundError();
+  const user = await await getUSerByActiveToken(data.session);
 
-  const user = await prisma.user.findUnique({
-    where: { activeToken: data.session },
-  });
   if (!user) throw new NotFoundError();
-  await prisma.user.update({
-    where: { activeToken: token },
-    data: {
-      isActive: true,
-    },
-  });
+  await activeUserByToken(data.session);
 
   return res.status(StatusCodes.OK).send({
     message: "reactivateAccount",

@@ -1,21 +1,7 @@
 import prisma from "@/utils/db";
 import { userPublicInfo } from "./user.service";
 
-export async function getGoogleProvider(providerId: string) {
-  return await prisma.linkProvider.findUnique({
-    where: {
-      provider_providerId: {
-        provider: "google",
-        providerId,
-      },
-    },
-    include: {
-      user: {
-        select: userPublicInfo,
-      },
-    },
-  });
-}
+// CREATE
 export async function linkAccountWithGoogleProvider(
   providerId: string,
   userId: string
@@ -37,3 +23,23 @@ export async function linkAccountWithGoogleProvider(
     },
   });
 }
+// READ
+export async function getGoogleProvider(providerId: string) {
+  return await prisma.linkProvider.findUnique({
+    where: {
+      provider_providerId: {
+        provider: "google",
+        providerId,
+      },
+    },
+    include: {
+      user: {
+        select: userPublicInfo,
+      },
+    },
+  });
+}
+
+// UPDATE
+
+// DELETE
