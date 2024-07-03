@@ -45,7 +45,7 @@ export class Server {
         cookie: {
           path: "/",
           httpOnly: true,
-          secure: false,
+          secure: configs.NODE_ENV == "production",
         },
         genid: (req) => {
           const randomId = crypto.randomBytes(10).toString("hex");

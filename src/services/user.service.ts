@@ -48,6 +48,21 @@ export async function createUserWithEmailAndPass(
 }
 
 // READ
+export async function getUserPasswordByEmail(email: string) {
+  const user = await prisma.user.findUnique({
+    where: {
+      email,
+    },
+    select: {
+      id: true,
+      isBlocked: true,
+      email: true,
+      password: true,
+    },
+  });
+  return user;
+}
+
 export async function getUserById(id: string) {
   const user = await prisma.user.findUnique({
     where: {

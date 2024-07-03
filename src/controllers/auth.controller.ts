@@ -27,6 +27,7 @@ import {
   getUserByEmail,
   getUserByRecoverToken,
   getUserByVerificationToken,
+  getUserPasswordByEmail,
   updatePasswordById,
   verifyEmailByToken,
 } from "@/services/user.service";
@@ -99,8 +100,23 @@ export async function signInGoogleCallBack(
     if (!userProvider) {
       const existAccount = await getUserByEmail(userInfo.email);
       console.log(state);
-      if (existAccount)
-        return res.redirect(`${configs.CLIENT_URL + state}?error=credential`);
+
+      if (existAccount) {
+        res.header("x-oauth2", "test");
+        return res.redirect(`${configs.CLIENT_URL}/auth/signin`);
+        // .cookie(
+        //   "oauth2",
+        //   JSON.stringify({
+        //     type: "nolink",
+        //     email: state == "/auth/signin" ? userInfo.email : "",
+        //   }),
+        //   {
+        //     httpOnly: true,
+        //     path: "/auth",
+        //     secure: configs.NODE_ENV == "production",
+        //   }
+        // )
+      }
 
       const data: Prisma.UserCreateInput = {
         email: userInfo.email,
@@ -147,11 +163,11 @@ export async function signIn(
   res: Response
 ) {
   const { email, password } = req.body;
-  const user = await getUserByEmail(email);
+  const user = await getUserPasswordByEmail(email);
+  console.log(user);
 
   if (!user || !user.password || !(await compareData(user.password, password)))
     throw new BadRequestError("Invalid email or password");
-
   if (user.isBlocked)
     throw new BadRequestError(
       "Your account has been locked please contact the administrator"
