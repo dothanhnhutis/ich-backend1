@@ -22,6 +22,7 @@ import {
   creatUserSchema,
   editPasswordSchema,
   editProfileSchema,
+  searchUserSchema,
 } from "@/schemas/user.schema";
 import express, { type Router } from "express";
 const router: Router = express.Router();
@@ -50,6 +51,7 @@ function userRouter(): Router {
     "/users/_search",
     authMiddleware(["emailVerified", "isActive", "isBlocked"]),
     checkPermission(["ADMIN"]),
+    validateResource(searchUserSchema),
     searchUser
   );
   // router.get("/users/test", getUserTest);

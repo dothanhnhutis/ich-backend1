@@ -28,12 +28,13 @@ import { omit } from "lodash";
 import { signJWT, verifyJWT } from "@/utils/jwt";
 
 export async function searchUser(
-  req: Request<{}, {}, {}, { page: string; take: string }>,
+  req: Request<{}, {}, {}, { page: string; limit: string }>,
   res: Response
 ) {
-  const { page, take } = req.query;
+  // const { page, limit } = req.query;
+  console.log(req.query);
 
-  return res.status(StatusCodes.OK).json(await queryUser());
+  return res.status(StatusCodes.OK).json(await queryUser({}));
 }
 
 export async function getUserRecoverToken(
