@@ -79,7 +79,13 @@ export async function queryUser(query?: QueryUserType | undefined) {
 
   const users = await prisma.user.findMany({
     where: query?.where,
-    orderBy: query?.orderBy,
+    // orderBy: query?.orderBy,
+    orderBy: [
+      {
+        email: "asc",
+        emailVerificationExpires: "asc",
+      },
+    ],
     take,
     skip,
     select: userPublicInfo,
