@@ -102,20 +102,20 @@ export async function signInGoogleCallBack(
       console.log(state);
 
       if (existAccount) {
-        res.header("x-oauth2", "test");
-        return res.redirect(`${configs.CLIENT_URL}/auth/signin`);
-        // .cookie(
-        //   "oauth2",
-        //   JSON.stringify({
-        //     type: "nolink",
-        //     email: state == "/auth/signin" ? userInfo.email : "",
-        //   }),
-        //   {
-        //     httpOnly: true,
-        //     path: "/auth",
-        //     secure: configs.NODE_ENV == "production",
-        //   }
-        // )
+        return res
+          .cookie(
+            "oauth2",
+            JSON.stringify({
+              type: "nolink",
+              email: state == "/auth/signin" ? userInfo.email : "",
+            }),
+            {
+              httpOnly: false,
+              path: "/auth",
+              secure: configs.NODE_ENV == "production",
+            }
+          )
+          .redirect(`${configs.CLIENT_URL}/auth/signin`);
       }
 
       const data: Prisma.UserCreateInput = {

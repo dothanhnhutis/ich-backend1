@@ -19,6 +19,7 @@ import {
   getUserByEmail,
   getUserById,
   getUserByRecoverToken,
+  queryUser,
 } from "@/services/user.service";
 import { Prisma } from "@prisma/client";
 import { isBase64Data, uploadImageCloudinary } from "@/utils/image";
@@ -26,30 +27,14 @@ import { z } from "zod";
 import { omit } from "lodash";
 import { signJWT, verifyJWT } from "@/utils/jwt";
 
-// export async function getUserTest(
-//   req: Request<{}, {}, {}, { page: string; take: string }>,
-//   res: Response
-// ) {
-//   const { page, take } = req.query;
-//   const currPage = parseInt(page ?? "1");
-//   const k = parseInt(take ?? "10");
+export async function searchUser(
+  req: Request<{}, {}, {}, { page: string; take: string }>,
+  res: Response
+) {
+  const { page, take } = req.query;
 
-//   const skip = (currPage - 1) * k;
-//   const total = await prisma.user.count({});
-
-//   const users = await prisma.user.findMany({
-//     take: k,
-//     skip,
-//   });
-
-//   return res.send({
-//     users,
-//     metadata: {
-//       hasNextPage: skip + k < total,
-//       totalPage: Math.ceil(total / k),
-//     },
-//   });
-// }
+  return res.status(StatusCodes.OK).json(await queryUser());
+}
 
 export async function getUserRecoverToken(
   req: Request<{ token: string }>,
