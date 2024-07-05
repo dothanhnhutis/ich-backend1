@@ -20,26 +20,6 @@ export const userPublicInfo: Prisma.UserSelect = {
   updatedAt: true,
 };
 
-type QueryUserType = {
-  where?:
-    | Pick<
-        Prisma.UserWhereInput,
-        "email" | "role" | "emailVerified" | "isActive" | "isBlocked"
-      >
-    | undefined;
-  orderBy?:
-    | {
-        email?: "asc" | "desc" | undefined;
-        role?: "asc" | "desc" | undefined;
-        emailVerified?: "asc" | "desc" | undefined;
-        isActive?: "asc" | "desc" | undefined;
-        isBlocked?: "asc" | "desc" | undefined;
-      }
-    | undefined;
-  page?: number | undefined;
-  take?: number | undefined;
-};
-
 //CREATE
 export async function createUser(
   data: Omit<Prisma.UserCreateInput, "Post" | "linkProvider">
@@ -69,23 +49,34 @@ export async function createUserWithEmailAndPass(
 }
 
 // READ
+export type QueryUserType = {
+  where?:
+    | Pick<
+        Prisma.UserWhereInput,
+        "email" | "role" | "emailVerified" | "isActive" | "isBlocked"
+      >
+    | undefined;
+  orderBy?:
+    | {
+        email?: "asc" | "desc" | undefined;
+        role?: "asc" | "desc" | undefined;
+        emailVerified?: "asc" | "desc" | undefined;
+        isActive?: "asc" | "desc" | undefined;
+        isBlocked?: "asc" | "desc" | undefined;
+      }
+    | undefined;
+  page?: number | undefined;
+  take?: number | undefined;
+};
 export async function queryUser(query?: QueryUserType | undefined) {
   const total = await prisma.user.count({});
   const take = query?.take || 10;
   const page = (!query?.page || query.page <= 0 ? 1 : query.page) - 1;
   const skip = page * take;
 
-  const where: Prisma.UserWhereInput = {};
-
   const users = await prisma.user.findMany({
     where: query?.where,
     // orderBy: query?.orderBy,
-    orderBy: [
-      {
-        email: "asc",
-        emailVerificationExpires: "asc",
-      },
-    ],
     take,
     skip,
     select: userPublicInfo,
