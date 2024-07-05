@@ -50,37 +50,50 @@ export async function createUserWithEmailAndPass(
 
 // READ
 export type QueryUserType = {
-  where?:
-    | Pick<
-        Prisma.UserWhereInput,
-        "email" | "role" | "emailVerified" | "isActive" | "isBlocked"
-      >
-    | undefined;
-  orderBy?:
-    | {
-        email?: "asc" | "desc" | undefined;
-        role?: "asc" | "desc" | undefined;
-        emailVerified?: "asc" | "desc" | undefined;
-        isActive?: "asc" | "desc" | undefined;
-        isBlocked?: "asc" | "desc" | undefined;
-      }
-    | undefined;
+  email?: string;
+  role?: string;
+  emailVerified?: boolean;
+  isActive?: boolean;
+  isBlocked?: boolean;
+  orderBy?: string;
   page?: number | undefined;
   take?: number | undefined;
 };
-export async function queryUser(query?: QueryUserType | undefined) {
-  const total = await prisma.user.count({});
-  const take = query?.take || 10;
-  const page = (!query?.page || query.page <= 0 ? 1 : query.page) - 1;
+export async function queryUser(props?: QueryUserType | undefined) {
+  const take = props?.take || 10;
+  const page = (!props?.page || props.page <= 0 ? 1 : props.page) - 1;
   const skip = page * take;
 
-  const users = await prisma.user.findMany({
-    where: query?.where,
-    // orderBy: query?.orderBy,
+  const where: Prisma.UserWhereInput = {
+    email:
+      !props?.email || props.email.split(",").length == 0
+        ? undefined
+        : { in: props.email.split(",") },
+    role:
+      !props?.role || props.role.split(",").length == 0
+        ? undefined
+        : { in: props.role.split(",") as Role[] },
+    emailVerified: props?.emailVerified,
+    isActive: props?.isActive,
+    isBlocked: props?.isBlocked,
+  };
+
+  const orderBy = props?.orderBy?.split(",");
+  console.log(orderBy);
+
+  const query1: Prisma.UserFindManyArgs = {
+    where,
     take,
     skip,
+    // orderBy:{email: props?.orderBy.sp},
     select: userPublicInfo,
-  });
+  };
+
+  const [users, total] = await prisma.$transaction([
+    prisma.user.findMany(query1),
+    prisma.user.count({ where: query1.where }),
+  ]);
+
   return {
     users,
     metadata: {

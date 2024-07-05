@@ -26,187 +26,22 @@ import {
 } from "@/services/user.service";
 import { Prisma } from "@prisma/client";
 import { isBase64Data, uploadImageCloudinary } from "@/utils/image";
-import { boolean, z } from "zod";
+import { z } from "zod";
 import { omit } from "lodash";
 import { signJWT, verifyJWT } from "@/utils/jwt";
-
-const emailRegex =
-  /^((([^<>()[\]\\.,;:\s@"]+(\.[^<>()[\]\\.,;:\s@"]+)*)|.(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))(\,))*?(([^<>()[\]\\.,;:\s@"]+(\.[^<>()[\]\\.,;:\s@"]+)*)|.(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/;
-const roleRegex =
-  /^((ADMIN|MANAGER|SALER|WRITER|CUSTOMER)(\,))*?(ADMIN|MANAGER|SALER|WRITER|CUSTOMER)$/;
-const trueFalseRegex = /^((0|1|true|false)(\,))*?(0|1|true|false)$/;
 
 export async function searchUser(
   req: Request<{}, {}, SearchUser["body"], SearchUser["query"]>,
   res: Response
 ) {
-  let emails: string[] = [];
-  let roles: Role[] = [];
-  let emailVerifieds: boolean[] = [];
-
-  if (req.query.email) {
-    if (typeof req.query.email == "string") {
-      if (emailRegex.test(req.query.email)) {
-        emails.push(req.query.email);
-      }
-    } else {
-      emails = [...emails, ...req.query.email];
-    }
-    emails = emails
-      .join(",")
-      .split(",")
-      .filter((val) => emailRegex.test(val))
-      .filter((value, index, array) => array.indexOf(value) === index);
-  }
-  if (req.body.email) {
-    emails.push(req.body.email);
-  }
-  if (req.body.emails) {
-    emails = [...emails, ...req.body.emails];
-  }
-
-  if (req.query.role) {
-    if (typeof req.query.role == "string") {
-      if (roleRegex.test(req.query.role)) {
-        roles = [...roles, ...(req.query.role.split(",") as Role[])];
-      }
-    } else {
-      const roleSplit = req.query.role
-        .filter((val) => roleRegex.test(val))
-        .join(",")
-        .split(",") as Role[];
-      roles = [...roles, ...roleSplit];
-    }
-  }
-  if (req.body.role) {
-    roles.push(req.body.role);
-  }
-  if (req.body.roles) {
-    roles = [...roles, ...req.body.roles];
-  }
-  if (req.query.emailVerified) {
-    if (typeof req.query.emailVerified == "string") {
-      if (trueFalseRegex.test(req.query.emailVerified)) {
-        emailVerifieds = [
-          ...emailVerifieds,
-          ...req.query.emailVerified
-            .split(",")
-            .map((val) => (val == "0" || val == "false" ? false : true)),
-        ];
-      }
-    } else {
-      const emailVerifiedSplit = req.query.emailVerified
-        .filter((val) => trueFalseRegex.test(val))
-        .join(",")
-        .split(",");
-      emailVerifieds = [...roles, ...roleSplit];
-    }
-  }
-
-  // if (data.emailVerified) {
-  //   if (typeof data.emailVerified == "string") {
-  //     if (trueFalseRegex.test(data.emailVerified)) {
-  //       data.emailVerified =
-  //         data.emailVerified == "0" || "false" ? "false" : "true";
-  //     } else {
-  //       delete data.emailVerified;
-  //     }
-  //   }
-  //   if (Array.isArray(data.emailVerified)) {
-  //     const newEmailVerifieds = data.emailVerified
-  //       .filter((val) => trueFalseRegex.test(val))
-  //       .map((val) => (val == "0" || val == "false" ? "false" : "true"))
-  //       .filter((value, index, array) => array.indexOf(value) === index);
-  //     if (newEmailVerifieds.length == 0) {
-  //       delete data.emailVerified;
-  //     } else if (newEmailVerifieds.length == 1) {
-  //       data.emailVerified = newEmailVerifieds[0];
-  //     } else {
-  //       data.emailVerified = newEmailVerifieds;
-  //     }
-  //   }
-  // }
-
-  // if (data.isActive) {
-  //   if (typeof data.isActive == "string") {
-  //     if (trueFalseRegex.test(data.isActive)) {
-  //       data.isActive = data.isActive == "0" || "false" ? "false" : "true";
-  //     } else {
-  //       delete data.isActive;
-  //     }
-  //   }
-  //   if (Array.isArray(data.isActive)) {
-  //     const newIsActives = data.isActive
-  //       .filter((val) => trueFalseRegex.test(val))
-  //       .map((val) => (val == "0" || val == "false" ? "false" : "true"))
-  //       .filter((value, index, array) => array.indexOf(value) === index);
-  //     if (newIsActives.length == 0) {
-  //       delete data.isActive;
-  //     } else if (newIsActives.length == 1) {
-  //       data.isActive = newIsActives[0];
-  //     } else {
-  //       data.isActive = newIsActives;
-  //     }
-  //   }
-  // }
-
-  // if (data.isBlocked) {
-  //   if (typeof data.isBlocked == "string") {
-  //     if (trueFalseRegex.test(data.isBlocked)) {
-  //       data.isBlocked =
-  //         data.isBlocked == "0" || "false" ? "false" : "true";
-  //     } else {
-  //       delete data.isBlocked;
-  //     }
-  //   }
-  //   if (Array.isArray(data.isBlocked)) {
-  //     const newIsBlockeds = data.isBlocked
-  //       .filter((val) => trueFalseRegex.test(val))
-  //       .map((val) => (val == "0" || val == "false" ? "false" : "true"))
-  //       .filter((value, index, array) => array.indexOf(value) === index);
-  //     if (newIsBlockeds.length == 0) {
-  //       delete data.isBlocked;
-  //     } else if (newIsBlockeds.length == 1) {
-  //       data.isBlocked = newIsBlockeds[0];
-  //     } else {
-  //       data.isBlocked = newIsBlockeds;
-  //     }
-  //   }
-  // }
-
-  // if (data.orderBy) {
-  //   if (typeof data.orderBy == "string") {
-  //     if (orderBysRegex.test(data.orderBy)) {
-  //       data.orderBy = data.orderBy
-  //         .split(",")
-  //         .filter((val) => orderByRegex.test(val))
-  //         .filter((value, index, array) => array.indexOf(value) === index);
-  //     } else {
-  //       delete data.orderBy;
-  //     }
-  //   }
-  //   if (Array.isArray(data.orderBy)) {
-  //     data.orderBy = data.orderBy
-  //       .filter((val) => orderByRegex.test(val))
-  //       .filter((value, index, array) => array.indexOf(value) === index);
-  //   }
-  // }
-
-  // if (data.page && Array.isArray(data.page)) {
-  //   data.page = data.page.reverse()[0];
-  // }
-  // if (data.limit && Array.isArray(data.limit)) {
-  //   data.limit = data.limit.reverse()[0];
-  // }
+  console.log(req.query);
+  console.log(req.body);
 
   return res.status(StatusCodes.OK).json(
-    // await queryUser({
-    //   where: {
-    //     email: emails.length > 0 ? { in: emails } : undefined,
-    //     // role: roles.length > 0 ? { in: roles as Role[] } : undefined,
-    //   },
-    // })
-    { message: "asdsa" }
+    await queryUser({
+      email: [req.query.email, req.body.email].join(","),
+      role: [req.query.role, req.body.role].join(","),
+    })
   );
 }
 

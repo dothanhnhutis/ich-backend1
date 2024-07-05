@@ -1,11 +1,14 @@
+import { orderBy } from "lodash";
 import { z } from "zod";
 
 const roles = ["ADMIN", "MANAGER", "SALER", "WRITER", "CUSTOMER"] as const;
+const emailRegex =
+  /^((([^<>()[\]\\.,;:\s@"]+(\.[^<>()[\]\\.,;:\s@"]+)*)|.(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))(\,))*?(([^<>()[\]\\.,;:\s@"]+(\.[^<>()[\]\\.,;:\s@"]+)*)|.(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/;
+const roleRegex =
+  /^((ADMIN|MANAGER|SALER|WRITER|CUSTOMER)(\,))*?(ADMIN|MANAGER|SALER|WRITER|CUSTOMER)$/;
 const trueFalseRegex = /^(0|1|true|false)$/;
-const orderBysRegex =
-  /^((email|role|emailVerified|isActive|isBlocked)\.(asc|desc)(\,)?)+((email|role|emailVerified|isActive|isBlocked)\.(asc|desc)?)$/;
 const orderByRegex =
-  /^((email|role|emailVerified|isActive|isBlocked)\.(asc|desc))$/;
+  /^((email|role|emailVerified|isActive|isBlocked)\.(asc|desc)\,)*?(email|role|emailVerified|isActive|isBlocked)\.(asc|desc)$/;
 
 export const editPasswordSchema = z.object({
   body: z
@@ -132,62 +135,198 @@ export const searchUserSchema = z.object({
       email: z.string().or(z.string().array()),
       role: z.string().or(z.string().array()),
       emailVerified: z.string().or(z.string().array()),
-      // isActive: z.string().or(z.string().array()),
-      // isBlocked: z.string().or(z.string().array()),
-      // orderBy: z.string().or(z.string().array()),
-      // page: z.string().or(z.string().array()),
-      // limit: z.string().or(z.string().array()),
+      isActive: z.string().or(z.string().array()),
+      isBlocked: z.string().or(z.string().array()),
+      orderBy: z.string().or(z.string().array()),
+      page: z.string().or(z.string().array()),
+      limit: z.string().or(z.string().array()),
     })
     .strip()
-    .partial(),
+    .partial()
+    .transform((val) => {
+      if (val.email) {
+        if (typeof val.email == "string") {
+          if (!emailRegex.test(val.email)) {
+            delete val.email;
+          }
+        } else {
+          val.email = val.email
+            .join(",")
+            .split(",")
+            .filter((val) => emailRegex.test(val))
+            .filter((val, index, array) => array.indexOf(val) === index)
+            .join(",");
+        }
+      }
+      return val;
+    })
+    .transform((val) => {
+      if (val.role) {
+        if (typeof val.role == "string") {
+          if (!roleRegex.test(val.role)) {
+            delete val.role;
+          }
+        } else if (Array.isArray(val.role)) {
+          val.role = val.role
+            .join(",")
+            .split(",")
+            .filter((val) => roleRegex.test(val))
+            .filter((val, index, array) => array.indexOf(val) === index)
+            .join(",");
+        }
+      }
+      return val;
+    })
+    .transform((val) => {
+      if (val.emailVerified) {
+        if (typeof val.emailVerified == "string") {
+          if (!trueFalseRegex.test(val.emailVerified)) {
+            delete val.emailVerified;
+          }
+        } else if (Array.isArray(val.emailVerified)) {
+          val.emailVerified = val.emailVerified
+            .filter((val) => trueFalseRegex.test(val))
+            .reverse()[0];
+        }
+      }
+      return val;
+    })
+    .transform((val) => {
+      if (val.isActive) {
+        if (typeof val.isActive == "string") {
+          if (!trueFalseRegex.test(val.isActive)) {
+            delete val.isActive;
+          }
+        } else if (Array.isArray(val.isActive)) {
+          val.isActive = val.isActive
+            .filter((val) => trueFalseRegex.test(val))
+            .reverse()[0];
+        }
+      }
+      return val;
+    })
+    .transform((val) => {
+      if (val.isBlocked) {
+        if (typeof val.isBlocked == "string") {
+          if (!trueFalseRegex.test(val.isBlocked)) {
+            delete val.isBlocked;
+          }
+        } else if (Array.isArray(val.isBlocked)) {
+          val.isBlocked = val.isBlocked
+            .filter((val) => trueFalseRegex.test(val))
+            .reverse()[0];
+        }
+      }
+      return val;
+    })
+    .transform((val) => {
+      if (val.orderBy) {
+        if (typeof val.orderBy == "string") {
+          if (!orderByRegex.test(val.orderBy)) {
+            delete val.role;
+          }
+        } else if (Array.isArray(val.orderBy)) {
+          val.orderBy = val.orderBy
+            .join(",")
+            .split(",")
+            .filter((val) => orderByRegex.test(val))
+            .filter((val, index, array) => array.indexOf(val) === index)
+            .join(",");
+        }
+      }
+      return val;
+    })
+    .transform((val) => {
+      if (val.page) {
+        if (typeof val.page == "string") {
+          if (!z.number().gt(1).safeParse(val.page).success) {
+            delete val.page;
+          }
+        } else if (Array.isArray(val.page)) {
+          val.page = val.page
+            .filter((val) => z.number().gt(1).safeParse(val).success)
+            .reverse()[0];
+        }
+      }
+      if (val.limit) {
+        if (typeof val.limit == "string") {
+          if (!z.number().gt(1).safeParse(val.limit).success) {
+            delete val.limit;
+          }
+        } else if (Array.isArray(val.limit)) {
+          val.limit = val.limit
+            .filter((val) => z.number().gt(1).safeParse(val).success)
+            .reverse()[0];
+        }
+      }
+      return val;
+    }),
   body: z
     .object({
       email: z
         .string({
           invalid_type_error: "Email field must be string",
         })
-        .email("Email field is invalid"),
-      emails: z
-        .array(z.string().email("Some elements in the array are not email"), {
-          invalid_type_error: "Emails field must be array",
+        .regex(
+          emailRegex,
+          "Email field invalid. Ex: 'example@gmail.com' | 'example@gmail.com,example1@gmail.com'"
+        ),
+      role: z
+        .string({
+          invalid_type_error:
+            "Role field must be 'ADMIN' | 'MANAGER' | 'SALER' | 'WRITER' | 'CUSTOMER'. Ex: 'MANAGER' | 'MANAGER,SALER'",
         })
-        .nonempty("Email field can not empty"),
-      role: z.enum(roles, {
-        invalid_type_error:
-          "Role field must be 'ADMIN' | 'MANAGER' | 'SALER' | 'WRITER' | 'CUSTOMER'",
-      }),
-      roles: z
-        .array(
-          z.enum(roles, {
-            message:
-              "All element in array must be 'ADMIN' | 'MANAGER' | 'SALER' | 'WRITER' | 'CUSTOMER'",
-          }),
-          {
-            invalid_type_error:
-              "Roles field must be array 'ADMIN' | 'MANAGER' | 'SALER' | 'WRITER' | 'CUSTOMER'",
-          }
-        )
-        .nonempty("Roles field can not empty"),
-      emailVerified: z.boolean({
-        invalid_type_error: "Email field must be boolean",
-      }),
-      emailVerifieds: z
-        .array(
-          z.boolean({
-            message: "All element in array must be true | false",
-          }),
-          {
-            invalid_type_error: "EmailVerifieds field must be array",
-          }
-        )
-        .nonempty("EmailVerifieds field can not empty"),
-      // isActive: z.string(),
-      // isActives: z.string().array(),
-      // isBlocked: z.string(),
-      // isBlockeds: z.string().array(),
-      // orderBy: z.string().or(z.string().array()),
-      // page: z.string().or(z.string().array()),
-      // limit: z.string().or(z.string().array()),
+        .regex(
+          roleRegex,
+          "Role field must be 'ADMIN' | 'MANAGER' | 'SALER' | 'WRITER' | 'CUSTOMER'. Ex: 'MANAGER' | 'MANAGER,SALER'"
+        ),
+      emailVerified: z
+        .string({
+          invalid_type_error:
+            "EmailVerified field must be '0' | '1' | 'true' | 'false'. Ex: 'true' | '0,true'",
+        })
+        .regex(
+          trueFalseRegex,
+          "EmailVerified field must be '0' | '1' | 'true' | 'false'. Ex: 'true' | '0,true'"
+        ),
+
+      isActive: z
+        .string({
+          invalid_type_error:
+            "IsActive field must be '0' | '1' | 'true' | 'false'. Ex: 'true' | '0,true'",
+        })
+        .regex(
+          trueFalseRegex,
+          "IsActive field must be '0' | '1' | 'true' | 'false'. Ex: 'true' | '0,true'"
+        ),
+      isBlocked: z
+        .string({
+          invalid_type_error:
+            "IsBlocked field must be '0' | '1' | 'true' | 'false'. Ex: 'true' | '0,true'",
+        })
+        .regex(
+          trueFalseRegex,
+          "IsBlocked field must be '0' | '1' | 'true' | 'false'. Ex: 'true' | '0,true'"
+        ),
+      orderBy: z
+        .string({
+          invalid_type_error:
+            "OrderBy field must be format (email|role|emailVerified|isActive|isBlocked).(asc|desc). Ex: 'email.asc' | 'email.asc,email.desc'",
+        })
+        .regex(
+          orderByRegex,
+          "OrderBy field must be format (email|role|emailVerified|isActive|isBlocked).(asc|desc). Ex: 'email.asc' | 'email.asc,email.desc'"
+        ),
+      page: z
+        .number({
+          invalid_type_error: "Page field must be number",
+        })
+        .gt(1, "Page field should be >= 1"),
+      limit: z
+        .number({
+          invalid_type_error: "Limit field must be number",
+        })
+        .gt(1, "Limit field should be >= 1"),
     })
     .strip()
     .partial(),
