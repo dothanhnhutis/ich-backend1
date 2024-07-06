@@ -1,6 +1,6 @@
-import { number, z } from "zod";
+import { z } from "zod";
 
-const roles = ["ADMIN", "MANAGER", "SALER", "WRITER", "CUSTOMER"] as const;
+const roles = ["MANAGER", "SALER", "WRITER", "CUSTOMER"] as const;
 const emailRegex =
   /^((([^<>()[\]\\.,;:\s@"]+(\.[^<>()[\]\\.,;:\s@"]+)*)|.(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))(\,))*?(([^<>()[\]\\.,;:\s@"]+(\.[^<>()[\]\\.,;:\s@"]+)*)|.(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/;
 const roleRegex =
@@ -138,101 +138,94 @@ export const searchUserSchema = z.object({
   query: z
     .object({
       email: z.string().or(
-        z.array(z.string()).transform((email) =>
-          email
+        z.array(z.string()).transform((email) => {
+          return email
+            .filter((val) => emailRegex.test(val))
             .join(",")
             .split(",")
-            .filter((val) => emailRegex.test(val))
             .filter((val, index, array) => array.indexOf(val) === index)
-            .join(",")
-        )
+            .join(",");
+        })
       ),
       role: z.string().or(
-        z.array(z.string()).transform((role) =>
-          role
+        z.array(z.string()).transform((role) => {
+          return role
+            .filter((val) => roleRegex.test(val))
             .join(",")
             .split(",")
-            .filter((val) => roleRegex.test(val))
             .filter((val, index, array) => array.indexOf(val) === index)
-            .join(",")
-        )
+            .join(",");
+        })
       ),
-      emailVerified: z
-        .string()
-        .or(
-          z
-            .array(z.string())
-            .transform(
-              (emailVerified) =>
-                emailVerified
-                  .filter((val) => trueFalseRegex.test(val))
-                  .reverse()[0]
-            )
-        ),
-      isActive: z
-        .string()
-        .or(
-          z
-            .array(z.string())
-            .transform(
-              (isActive) =>
-                isActive.filter((val) => trueFalseRegex.test(val)).reverse()[0]
-            )
-        ),
-      isBlocked: z
-        .string()
-        .or(
-          z
-            .array(z.string())
-            .transform(
-              (isBlocked) =>
-                isBlocked.filter((val) => trueFalseRegex.test(val)).reverse()[0]
-            )
-        ),
+      emailVerified: z.string().or(
+        z.array(z.string()).transform((emailVerified) => {
+          return emailVerified
+            .filter((val) => trueFalseRegex.test(val))
+            .reverse()[0];
+        })
+      ),
+      isActive: z.string().or(
+        z.array(z.string()).transform((isActive) => {
+          return isActive
+            .filter((val) => trueFalseRegex.test(val))
+            .reverse()[0];
+        })
+      ),
+      isBlocked: z.string().or(
+        z.array(z.string()).transform((isBlocked) => {
+          return isBlocked
+            .filter((val) => trueFalseRegex.test(val))
+            .reverse()[0];
+        })
+      ),
       orderBy: z.string().or(
-        z.array(z.string()).transform((orderBy) =>
-          orderBy
+        z.array(z.string()).transform((orderBy) => {
+          return orderBy
             .filter((val) => orderByRegex.test(val))
             .join(",")
             .split(",")
             .filter((val, index, array) => array.indexOf(val) === index)
-            .join(",")
-        )
+            .join(",");
+        })
       ),
-      page: z
-        .string()
-        .or(z.array(z.string()).transform((page) => page.join(","))),
-      limit: z
-        .string()
-        .or(z.array(z.string()).transform((limit) => limit.join(","))),
+      page: z.string().or(
+        z.array(z.string()).transform((page) => {
+          return page.filter((val) => /[1-9][0-9]*/.test(val)).reverse()[0];
+        })
+      ),
+      limit: z.string().or(
+        z.array(z.string()).transform((limit) => {
+          return limit.filter((val) => /[1-9][0-9]*/.test(val)).reverse()[0];
+        })
+      ),
     })
     .strip()
     .partial()
     .transform((val) => {
-      if (val.email && !emailRegex.test(val.email)) {
+      if (!emailRegex.test(val.email || "")) {
         delete val.email;
       }
-      if (val.role && !roleRegex.test(val.role)) {
+      if (!roleRegex.test(val.role || "")) {
         delete val.role;
       }
-      if (val.emailVerified && !trueFalseRegex.test(val.emailVerified)) {
+      if (!trueFalseRegex.test(val.emailVerified || "")) {
         delete val.emailVerified;
       }
-      if (val.isActive && !trueFalseRegex.test(val.isActive)) {
+      if (!trueFalseRegex.test(val.isActive || "")) {
         delete val.isActive;
       }
-      if (val.isBlocked && !trueFalseRegex.test(val.isBlocked)) {
+      if (!trueFalseRegex.test(val.isBlocked || "")) {
         delete val.isBlocked;
       }
-      if (val.orderBy && !trueFalseRegex.test(val.orderBy)) {
+      if (!trueFalseRegex.test(val.orderBy || "")) {
         delete val.orderBy;
       }
-      if (val.page && !checkNumber(val.page)) {
+      if (!checkNumber(val.page || "")) {
         delete val.page;
       }
-      // if (val.limit && !checkNumber(val.limit)) {
-      //   delete val.limit;
-      // }
+      if (!checkNumber(val.limit || "")) {
+        delete val.limit;
+      }
       return val;
     }),
   body: z
@@ -262,6 +255,9 @@ export const searchUserSchema = z.object({
         .regex(
           trueFalseRegex,
           "EmailVerified field must be '0' | '1' | 'true' | 'false'. Ex: 'true' | '0'"
+        )
+        .transform(
+          (emailVerified) => emailVerified == "true" || emailVerified == "1"
         ),
       isActive: z
         .string({
@@ -271,6 +267,9 @@ export const searchUserSchema = z.object({
         .regex(
           trueFalseRegex,
           "IsActive field must be '0' | '1' | 'true' | 'false'. Ex: 'true' | '0'"
+        )
+        .transform(
+          (emailVerified) => emailVerified == "true" || emailVerified == "1"
         ),
       isBlocked: z
         .string({
@@ -280,6 +279,9 @@ export const searchUserSchema = z.object({
         .regex(
           trueFalseRegex,
           "IsBlocked field must be '0' | '1' | 'true' | 'false'. Ex: 'true' | '0'"
+        )
+        .transform(
+          (emailVerified) => emailVerified == "true" || emailVerified == "1"
         ),
       orderBy: z
         .string({
@@ -310,9 +312,8 @@ export type EditProfile = z.infer<typeof editProfileSchema>;
 export type EditPicture = z.infer<typeof editPictureSchema>;
 export type CreateUser = z.infer<typeof creatUserSchema>;
 export type EditUser = z.infer<typeof editUserSchema>;
-export type Role = CreateUser["body"]["role"];
-
-// export type SearchUser = z.infer<typeof searchUserSchema>;
+export type Role = CreateUser["body"]["role"] | "ADMIN";
+export type SearchUser = z.infer<typeof searchUserSchema>;
 
 export type CurrentUser = {
   id: string;

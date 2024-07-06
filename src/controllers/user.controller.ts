@@ -6,8 +6,7 @@ import {
   EditPicture,
   EditProfile,
   EditUser,
-  Role,
-  // SearchUser,
+  SearchUser,
 } from "@/schemas/user.schema";
 import { BadRequestError, NotFoundError } from "@/error-handler";
 import { compareData, hashData } from "@/utils/helper";
@@ -22,7 +21,6 @@ import {
   getUserById,
   getUserByRecoverToken,
   queryUser,
-  QueryUserType,
 } from "@/services/user.service";
 import { Prisma } from "@prisma/client";
 import { isBase64Data, uploadImageCloudinary } from "@/utils/image";
@@ -30,26 +28,42 @@ import { z } from "zod";
 import { omit, split } from "lodash";
 import { signJWT, verifyJWT } from "@/utils/jwt";
 
-export async function searchUser(req: Request, res: Response) {
-  // console.log(req.query.email);
-  // console.log(req.body);
-  console.log(req.query);
-
-  return res
-    .status(StatusCodes.OK)
-    .json
-    // await queryUser({
-    //   email: req.query.email
-    //     ? (req.query.email.concat(
-    //         req.body.email ? "," : "",
-    //         req.body.email || ""
-    //       ) as string)
-    //     : req.body.email,
-    //   // role: [req.query.role, req.body.role].join(","),
-    //   page: req.body.page || parseInt(req.query.page as string),
-    //   take: req.body.limit || parseInt(req.query.limit as string),
-    // })
-    ();
+export async function searchUser(
+  req: Request<{}, {}, SearchUser["body"], SearchUser["query"]>,
+  res: Response
+) {
+  return res.status(StatusCodes.OK).json(
+    await queryUser({
+      email: req.body.email || req.query.email,
+      role: req.body.role || req.query.role,
+      emailVerified:
+        req.body.emailVerified ||
+        (req.query.emailVerified != undefined
+          ? req.query.emailVerified == "true" || req.query.emailVerified == "1"
+          : req.query.emailVerified),
+      isActive:
+        req.body.isActive ||
+        (req.query.isActive != undefined
+          ? req.query.isActive == "true" || req.query.isActive == "1"
+          : req.query.isActive),
+      isBlocked:
+        req.body.isBlocked ||
+        (req.query.isBlocked != undefined
+          ? req.query.isBlocked == "true" || req.query.isBlocked == "1"
+          : req.query.isBlocked),
+      orderBy: req.body.orderBy || req.query.orderBy,
+      page:
+        req.body.page ||
+        (req.query.page != undefined
+          ? parseInt(req.query.page)
+          : req.query.page),
+      take:
+        req.body.limit ||
+        (req.query.limit != undefined
+          ? parseInt(req.query.limit)
+          : req.query.limit),
+    })
+  );
 }
 
 export async function getUserRecoverToken(
@@ -317,6 +331,7 @@ export async function creatNewUser(
     email: email,
     password: hash,
     username,
+    role,
     emailVerificationToken: randomCharacters,
     emailVerificationExpires: date,
     ...other,

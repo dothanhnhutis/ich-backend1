@@ -9,6 +9,7 @@ import {
   sendVerifyEmail,
   getUserRecoverToken,
   searchUser,
+  creatNewUser,
 } from "@/controllers/user.controller";
 import checkPermission from "@/middleware/checkPermission";
 import { rateLimitSendEmail } from "@/middleware/rateLimit";
@@ -54,8 +55,14 @@ function userRouter(): Router {
     validateResource(searchUserSchema),
     searchUser
   );
-  // router.get("/users/test", getUserTest);
-  // router.post("/users", validateResource(creatUserSchema), creatNewUser);
+
+  router.post(
+    "/users",
+    authMiddleware(["emailVerified", "isActive", "isBlocked"]),
+    checkPermission(["ADMIN"]),
+    validateResource(creatUserSchema),
+    creatNewUser
+  );
   // router.patch("/users", validateResource(creatUserSchema), editUser);
 
   router.patch(

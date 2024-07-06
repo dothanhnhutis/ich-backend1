@@ -59,6 +59,15 @@ export type QueryUserType = {
   page?: number | undefined;
   take?: number | undefined;
 };
+
+export function convertStringToOrderArray(input: string) {
+  const pairs = input.split(",");
+  return pairs.map((pair) => {
+    const [field, order] = pair.split(".");
+    return { [field]: order };
+  });
+}
+
 export async function queryUser(props?: QueryUserType | undefined) {
   const take = props?.take || 10;
   const page = (!props?.page || props.page <= 0 ? 1 : props.page) - 1;
@@ -78,19 +87,19 @@ export async function queryUser(props?: QueryUserType | undefined) {
     isBlocked: props?.isBlocked,
   };
 
-  const orderBy = props?.orderBy?.split(",");
-
-  const query1: Prisma.UserFindManyArgs = {
+  const query: Prisma.UserFindManyArgs = {
     where,
     take,
     skip,
-    // orderBy:{email: props?.orderBy.sp},
+    orderBy: props?.orderBy
+      ? convertStringToOrderArray(props?.orderBy)
+      : undefined,
     select: userPublicInfo,
   };
 
   const [users, total] = await prisma.$transaction([
-    prisma.user.findMany(query1),
-    prisma.user.count({ where: query1.where }),
+    prisma.user.findMany(query),
+    prisma.user.count({ where: query.where }),
   ]);
 
   return {
