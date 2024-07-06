@@ -1,5 +1,4 @@
-import { orderBy } from "lodash";
-import { z } from "zod";
+import { number, z } from "zod";
 
 const roles = ["ADMIN", "MANAGER", "SALER", "WRITER", "CUSTOMER"] as const;
 const emailRegex =
@@ -9,6 +8,12 @@ const roleRegex =
 const trueFalseRegex = /^(0|1|true|false)$/;
 const orderByRegex =
   /^((email|role|emailVerified|isActive|isBlocked)\.(asc|desc)\,)*?(email|role|emailVerified|isActive|isBlocked)\.(asc|desc)$/;
+const checkNumber = (number: string) =>
+  z
+    .string()
+    .transform((val) => parseInt(val))
+    .pipe(z.number().gte(1))
+    .safeParse(number).success;
 
 export const editPasswordSchema = z.object({
   body: z
@@ -132,133 +137,102 @@ export const editUserSchema = z.object({
 export const searchUserSchema = z.object({
   query: z
     .object({
-      email: z.string().or(z.string().array()),
-      role: z.string().or(z.string().array()),
-      emailVerified: z.string().or(z.string().array()),
-      isActive: z.string().or(z.string().array()),
-      isBlocked: z.string().or(z.string().array()),
-      orderBy: z.string().or(z.string().array()),
-      page: z.string().or(z.string().array()),
-      limit: z.string().or(z.string().array()),
-    })
-    .strip()
-    .partial()
-    .transform((val) => {
-      if (val.email) {
-        if (typeof val.email == "string") {
-          if (!emailRegex.test(val.email)) {
-            delete val.email;
-          }
-        } else {
-          val.email = val.email
+      email: z.string().or(
+        z.array(z.string()).transform((email) =>
+          email
             .join(",")
             .split(",")
             .filter((val) => emailRegex.test(val))
             .filter((val, index, array) => array.indexOf(val) === index)
-            .join(",");
-        }
-      }
-      return val;
-    })
-    .transform((val) => {
-      if (val.role) {
-        if (typeof val.role == "string") {
-          if (!roleRegex.test(val.role)) {
-            delete val.role;
-          }
-        } else if (Array.isArray(val.role)) {
-          val.role = val.role
+            .join(",")
+        )
+      ),
+      role: z.string().or(
+        z.array(z.string()).transform((role) =>
+          role
             .join(",")
             .split(",")
             .filter((val) => roleRegex.test(val))
             .filter((val, index, array) => array.indexOf(val) === index)
-            .join(",");
-        }
-      }
-      return val;
-    })
-    .transform((val) => {
-      if (val.emailVerified) {
-        if (typeof val.emailVerified == "string") {
-          if (!trueFalseRegex.test(val.emailVerified)) {
-            delete val.emailVerified;
-          }
-        } else if (Array.isArray(val.emailVerified)) {
-          val.emailVerified = val.emailVerified
-            .filter((val) => trueFalseRegex.test(val))
-            .reverse()[0];
-        }
-      }
-      return val;
-    })
-    .transform((val) => {
-      if (val.isActive) {
-        if (typeof val.isActive == "string") {
-          if (!trueFalseRegex.test(val.isActive)) {
-            delete val.isActive;
-          }
-        } else if (Array.isArray(val.isActive)) {
-          val.isActive = val.isActive
-            .filter((val) => trueFalseRegex.test(val))
-            .reverse()[0];
-        }
-      }
-      return val;
-    })
-    .transform((val) => {
-      if (val.isBlocked) {
-        if (typeof val.isBlocked == "string") {
-          if (!trueFalseRegex.test(val.isBlocked)) {
-            delete val.isBlocked;
-          }
-        } else if (Array.isArray(val.isBlocked)) {
-          val.isBlocked = val.isBlocked
-            .filter((val) => trueFalseRegex.test(val))
-            .reverse()[0];
-        }
-      }
-      return val;
-    })
-    .transform((val) => {
-      if (val.orderBy) {
-        if (typeof val.orderBy == "string") {
-          if (!orderByRegex.test(val.orderBy)) {
-            delete val.role;
-          }
-        } else if (Array.isArray(val.orderBy)) {
-          val.orderBy = val.orderBy
+            .join(",")
+        )
+      ),
+      emailVerified: z
+        .string()
+        .or(
+          z
+            .array(z.string())
+            .transform(
+              (emailVerified) =>
+                emailVerified
+                  .filter((val) => trueFalseRegex.test(val))
+                  .reverse()[0]
+            )
+        ),
+      isActive: z
+        .string()
+        .or(
+          z
+            .array(z.string())
+            .transform(
+              (isActive) =>
+                isActive.filter((val) => trueFalseRegex.test(val)).reverse()[0]
+            )
+        ),
+      isBlocked: z
+        .string()
+        .or(
+          z
+            .array(z.string())
+            .transform(
+              (isBlocked) =>
+                isBlocked.filter((val) => trueFalseRegex.test(val)).reverse()[0]
+            )
+        ),
+      orderBy: z.string().or(
+        z.array(z.string()).transform((orderBy) =>
+          orderBy
+            .filter((val) => orderByRegex.test(val))
             .join(",")
             .split(",")
-            .filter((val) => orderByRegex.test(val))
             .filter((val, index, array) => array.indexOf(val) === index)
-            .join(",");
-        }
-      }
-      return val;
+            .join(",")
+        )
+      ),
+      page: z
+        .string()
+        .or(z.array(z.string()).transform((page) => page.join(","))),
+      limit: z
+        .string()
+        .or(z.array(z.string()).transform((limit) => limit.join(","))),
     })
+    .strip()
+    .partial()
     .transform((val) => {
-      if (val.page) {
-        if (typeof val.page == "string") {
-          if (!z.number().gt(1).safeParse(val.page).success) {
-            delete val.page;
-          }
-        } else if (Array.isArray(val.page)) {
-          val.page = val.page
-            .filter((val) => z.number().gt(1).safeParse(val).success)
-            .reverse()[0];
-        }
+      if (val.email && !emailRegex.test(val.email)) {
+        delete val.email;
       }
-      if (val.limit) {
-        if (typeof val.limit == "string") {
-          if (!z.number().gt(1).safeParse(val.limit).success) {
-            delete val.limit;
-          }
-        } else if (Array.isArray(val.limit)) {
-          val.limit = val.limit
-            .filter((val) => z.number().gt(1).safeParse(val).success)
-            .reverse()[0];
-        }
+      if (val.role && !roleRegex.test(val.role)) {
+        delete val.role;
       }
+      if (val.emailVerified && !trueFalseRegex.test(val.emailVerified)) {
+        delete val.emailVerified;
+      }
+      if (val.isActive && !trueFalseRegex.test(val.isActive)) {
+        delete val.isActive;
+      }
+      if (val.isBlocked && !trueFalseRegex.test(val.isBlocked)) {
+        delete val.isBlocked;
+      }
+      if (val.orderBy && !trueFalseRegex.test(val.orderBy)) {
+        delete val.orderBy;
+      }
+      if (val.page && !checkNumber(val.page)) {
+        delete val.page;
+      }
+      // if (val.limit && !checkNumber(val.limit)) {
+      //   delete val.limit;
+      // }
       return val;
     }),
   body: z
@@ -283,30 +257,29 @@ export const searchUserSchema = z.object({
       emailVerified: z
         .string({
           invalid_type_error:
-            "EmailVerified field must be '0' | '1' | 'true' | 'false'. Ex: 'true' | '0,true'",
+            "EmailVerified field must be '0' | '1' | 'true' | 'false'. Ex: 'true' | '0'",
         })
         .regex(
           trueFalseRegex,
-          "EmailVerified field must be '0' | '1' | 'true' | 'false'. Ex: 'true' | '0,true'"
+          "EmailVerified field must be '0' | '1' | 'true' | 'false'. Ex: 'true' | '0'"
         ),
-
       isActive: z
         .string({
           invalid_type_error:
-            "IsActive field must be '0' | '1' | 'true' | 'false'. Ex: 'true' | '0,true'",
+            "IsActive field must be '0' | '1' | 'true' | 'false'. Ex: 'true' | '0'",
         })
         .regex(
           trueFalseRegex,
-          "IsActive field must be '0' | '1' | 'true' | 'false'. Ex: 'true' | '0,true'"
+          "IsActive field must be '0' | '1' | 'true' | 'false'. Ex: 'true' | '0'"
         ),
       isBlocked: z
         .string({
           invalid_type_error:
-            "IsBlocked field must be '0' | '1' | 'true' | 'false'. Ex: 'true' | '0,true'",
+            "IsBlocked field must be '0' | '1' | 'true' | 'false'. Ex: 'true' | '0'",
         })
         .regex(
           trueFalseRegex,
-          "IsBlocked field must be '0' | '1' | 'true' | 'false'. Ex: 'true' | '0,true'"
+          "IsBlocked field must be '0' | '1' | 'true' | 'false'. Ex: 'true' | '0'"
         ),
       orderBy: z
         .string({
@@ -321,12 +294,12 @@ export const searchUserSchema = z.object({
         .number({
           invalid_type_error: "Page field must be number",
         })
-        .gt(1, "Page field should be >= 1"),
+        .gte(1, "Page field should be >= 1"),
       limit: z
         .number({
           invalid_type_error: "Limit field must be number",
         })
-        .gt(1, "Limit field should be >= 1"),
+        .gte(1, "Limit field should be >= 1"),
     })
     .strip()
     .partial(),
@@ -339,7 +312,7 @@ export type CreateUser = z.infer<typeof creatUserSchema>;
 export type EditUser = z.infer<typeof editUserSchema>;
 export type Role = CreateUser["body"]["role"];
 
-export type SearchUser = z.infer<typeof searchUserSchema>;
+// export type SearchUser = z.infer<typeof searchUserSchema>;
 
 export type CurrentUser = {
   id: string;

@@ -79,7 +79,6 @@ export async function queryUser(props?: QueryUserType | undefined) {
   };
 
   const orderBy = props?.orderBy?.split(",");
-  console.log(orderBy);
 
   const query1: Prisma.UserFindManyArgs = {
     where,

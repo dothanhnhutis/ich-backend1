@@ -1,4 +1,4 @@
-import { Request, Response } from "express";
+import { query, Request, Response } from "express";
 import { StatusCodes } from "http-status-codes";
 import {
   CreateUser,
@@ -7,7 +7,7 @@ import {
   EditProfile,
   EditUser,
   Role,
-  SearchUser,
+  // SearchUser,
 } from "@/schemas/user.schema";
 import { BadRequestError, NotFoundError } from "@/error-handler";
 import { compareData, hashData } from "@/utils/helper";
@@ -27,22 +27,29 @@ import {
 import { Prisma } from "@prisma/client";
 import { isBase64Data, uploadImageCloudinary } from "@/utils/image";
 import { z } from "zod";
-import { omit } from "lodash";
+import { omit, split } from "lodash";
 import { signJWT, verifyJWT } from "@/utils/jwt";
 
-export async function searchUser(
-  req: Request<{}, {}, SearchUser["body"], SearchUser["query"]>,
-  res: Response
-) {
+export async function searchUser(req: Request, res: Response) {
+  // console.log(req.query.email);
+  // console.log(req.body);
   console.log(req.query);
-  console.log(req.body);
 
-  return res.status(StatusCodes.OK).json(
-    await queryUser({
-      email: [req.query.email, req.body.email].join(","),
-      role: [req.query.role, req.body.role].join(","),
-    })
-  );
+  return res
+    .status(StatusCodes.OK)
+    .json
+    // await queryUser({
+    //   email: req.query.email
+    //     ? (req.query.email.concat(
+    //         req.body.email ? "," : "",
+    //         req.body.email || ""
+    //       ) as string)
+    //     : req.body.email,
+    //   // role: [req.query.role, req.body.role].join(","),
+    //   page: req.body.page || parseInt(req.query.page as string),
+    //   take: req.body.limit || parseInt(req.query.limit as string),
+    // })
+    ();
 }
 
 export async function getUserRecoverToken(
