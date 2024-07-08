@@ -70,16 +70,16 @@ export const creatUserSchema = z.object({
           "Password field must include: letters, numbers and special characters"
         ),
       role: z.enum(roles),
-      isActive: z
+      inActive: z
         .boolean({
-          required_error: "isActive field is required",
-          invalid_type_error: "isActive field must be boolean",
+          required_error: "inActive field is required",
+          invalid_type_error: "inActive field must be boolean",
         })
         .default(true),
-      isBlocked: z
+      suspended: z
         .boolean({
-          required_error: "isBlocked field is required",
-          invalid_type_error: "isBlocked field must be boolean",
+          required_error: "suspended field is required",
+          invalid_type_error: "suspended field must be boolean",
         })
         .default(false),
       phone: z
@@ -125,9 +125,9 @@ export const editUserSchema = z.object({
   body: creatUserSchema.shape.body
     .extend({
       picture: editPictureSchema.shape.body,
-      isActive: z.boolean({
-        required_error: "isActive field is required",
-        invalid_type_error: "isActive field must be boolean",
+      inActive: z.boolean({
+        required_error: "inActive field is required",
+        invalid_type_error: "inActive field must be boolean",
       }),
     })
     .partial()
@@ -164,14 +164,14 @@ export const searchUserSchema = z.object({
             .reverse()[0];
         })
       ),
-      isActive: z.string().or(
+      inActive: z.string().or(
         z.array(z.string()).transform((isActive) => {
           return isActive
             .filter((val) => trueFalseRegex.test(val))
             .reverse()[0];
         })
       ),
-      isBlocked: z.string().or(
+      suspended: z.string().or(
         z.array(z.string()).transform((isBlocked) => {
           return isBlocked
             .filter((val) => trueFalseRegex.test(val))
@@ -211,11 +211,11 @@ export const searchUserSchema = z.object({
       if (!trueFalseRegex.test(val.emailVerified || "")) {
         delete val.emailVerified;
       }
-      if (!trueFalseRegex.test(val.isActive || "")) {
-        delete val.isActive;
+      if (!trueFalseRegex.test(val.inActive || "")) {
+        delete val.inActive;
       }
-      if (!trueFalseRegex.test(val.isBlocked || "")) {
-        delete val.isBlocked;
+      if (!trueFalseRegex.test(val.suspended || "")) {
+        delete val.suspended;
       }
       if (!trueFalseRegex.test(val.orderBy || "")) {
         delete val.orderBy;
@@ -259,7 +259,7 @@ export const searchUserSchema = z.object({
         .transform(
           (emailVerified) => emailVerified == "true" || emailVerified == "1"
         ),
-      isActive: z
+      inActive: z
         .string({
           invalid_type_error:
             "IsActive field must be '0' | '1' | 'true' | 'false'. Ex: 'true' | '0'",
@@ -271,14 +271,14 @@ export const searchUserSchema = z.object({
         .transform(
           (emailVerified) => emailVerified == "true" || emailVerified == "1"
         ),
-      isBlocked: z
+      suspended: z
         .string({
           invalid_type_error:
-            "IsBlocked field must be '0' | '1' | 'true' | 'false'. Ex: 'true' | '0'",
+            "suspended field must be '0' | '1' | 'true' | 'false'. Ex: 'true' | '0'",
         })
         .regex(
           trueFalseRegex,
-          "IsBlocked field must be '0' | '1' | 'true' | 'false'. Ex: 'true' | '0'"
+          "suspended field must be '0' | '1' | 'true' | 'false'. Ex: 'true' | '0'"
         )
         .transform(
           (emailVerified) => emailVerified == "true" || emailVerified == "1"
@@ -320,12 +320,12 @@ export type CurrentUser = {
   email: string;
   emailVerified: boolean;
   role: Role;
-  isActive: boolean;
+  inActive: boolean;
   username: string;
-  isBlocked: boolean;
-  phone: string;
-  picture: string;
-  address: string;
+  suspended: boolean;
+  phone: string | null;
+  picture: string | null;
+  address: string | null;
   createdAt: Date;
   updatedAt: Date;
 };

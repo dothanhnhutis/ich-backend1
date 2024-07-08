@@ -41,16 +41,16 @@ export async function searchUser(
         (req.query.emailVerified != undefined
           ? req.query.emailVerified == "true" || req.query.emailVerified == "1"
           : req.query.emailVerified),
-      isActive:
-        req.body.isActive ||
-        (req.query.isActive != undefined
-          ? req.query.isActive == "true" || req.query.isActive == "1"
-          : req.query.isActive),
-      isBlocked:
-        req.body.isBlocked ||
-        (req.query.isBlocked != undefined
-          ? req.query.isBlocked == "true" || req.query.isBlocked == "1"
-          : req.query.isBlocked),
+      inActive:
+        req.body.inActive ||
+        (req.query.inActive != undefined
+          ? req.query.inActive == "true" || req.query.inActive == "1"
+          : req.query.inActive),
+      suspended:
+        req.body.suspended ||
+        (req.query.suspended != undefined
+          ? req.query.suspended == "true" || req.query.suspended == "1"
+          : req.query.suspended),
       orderBy: req.body.orderBy || req.query.orderBy,
       page:
         req.body.page ||
@@ -94,7 +94,7 @@ export async function currentUser(req: Request, res: Response) {
 export async function disactivate(req: Request, res: Response) {
   const { id } = req.session.user!;
   await editUserById(id, {
-    isActive: false,
+    inActive: false,
   });
 
   await req.logout();

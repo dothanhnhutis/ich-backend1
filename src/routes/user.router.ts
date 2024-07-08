@@ -30,27 +30,27 @@ const router: Router = express.Router();
 function userRouter(): Router {
   router.get(
     "/users/send-verify-email",
-    authMiddleware(["isActive", "isBlocked"]),
+    authMiddleware(["inActive", "suspended"]),
     rateLimitSendEmail,
     sendVerifyEmail
   );
   router.get(
     "/users/me",
-    authMiddleware(["isActive", "isBlocked"]),
+    authMiddleware(["inActive", "suspended"]),
     currentUser
   );
 
   router.get("/users/recover/:token", getUserRecoverToken);
   router.get(
     "/users",
-    authMiddleware(["emailVerified", "isActive", "isBlocked"]),
+    authMiddleware(["emailVerified", "inActive", "suspended"]),
     checkPermission(["ADMIN"]),
     getUser
   );
 
   router.get(
     "/users/_search",
-    authMiddleware(["emailVerified", "isActive", "isBlocked"]),
+    authMiddleware(["emailVerified", "inActive", "suspended"]),
     checkPermission(["ADMIN"]),
     validateResource(searchUserSchema),
     searchUser
@@ -58,7 +58,7 @@ function userRouter(): Router {
 
   router.post(
     "/users",
-    authMiddleware(["emailVerified", "isActive", "isBlocked"]),
+    authMiddleware(["emailVerified", "inActive", "suspended"]),
     checkPermission(["ADMIN"]),
     validateResource(creatUserSchema),
     creatNewUser
@@ -67,12 +67,12 @@ function userRouter(): Router {
 
   router.patch(
     "/users/disactivate",
-    authMiddleware(["emailVerified", "isActive", "isBlocked"]),
+    authMiddleware(["emailVerified", "inActive", "suspended"]),
     disactivate
   );
   router.post(
     "/users/password",
-    authMiddleware(["emailVerified", "isActive", "isBlocked"]),
+    authMiddleware(["emailVerified", "inActive", "suspended"]),
     validateResource(editPasswordSchema),
     editPassword
   );
@@ -80,7 +80,7 @@ function userRouter(): Router {
 
   router.patch(
     "/users",
-    authMiddleware(["emailVerified", "isActive", "isBlocked"]),
+    authMiddleware(["emailVerified", "inActive", "suspended"]),
     validateResource(editProfileSchema),
     editProfile
   );

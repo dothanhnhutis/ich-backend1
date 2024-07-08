@@ -10,9 +10,9 @@ export const userPublicInfo: Prisma.UserSelect = {
   email: true,
   emailVerified: true,
   role: true,
-  isActive: true,
+  inActive: true,
   username: true,
-  isBlocked: true,
+  suspended: true,
   phone: true,
   picture: true,
   address: true,
@@ -53,8 +53,8 @@ export type QueryUserType = {
   email?: string;
   role?: string;
   emailVerified?: boolean;
-  isActive?: boolean;
-  isBlocked?: boolean;
+  inActive?: boolean;
+  suspended?: boolean;
   orderBy?: string;
   page?: number | undefined;
   take?: number | undefined;
@@ -83,8 +83,8 @@ export async function queryUser(props?: QueryUserType | undefined) {
         ? undefined
         : { in: props.role.split(",") as Role[] },
     emailVerified: props?.emailVerified,
-    isActive: props?.isActive,
-    isBlocked: props?.isBlocked,
+    inActive: props?.inActive,
+    suspended: props?.suspended,
   };
 
   const query: Prisma.UserFindManyArgs = {
@@ -118,7 +118,7 @@ export async function getUserPasswordByEmail(email: string) {
     },
     select: {
       id: true,
-      isBlocked: true,
+      suspended: true,
       email: true,
       password: true,
     },
@@ -202,7 +202,7 @@ export async function activeUserByToken(token: string) {
   await prisma.user.update({
     where: { activeToken: token },
     data: {
-      isActive: true,
+      inActive: true,
       activeExpires: new Date(),
       activeToken: null,
     },

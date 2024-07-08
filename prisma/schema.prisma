@@ -38,8 +38,8 @@ model User {
   passwordResetToken       String?        @unique
   passwordResetExpires     DateTime? //4h
   role                     Role           @default(CUSTOMER)
-  isBlocked                Boolean        @default(false)
-  isActive                 Boolean        @default(true)
+  suspended                Boolean        @default(false)
+  inActive                 Boolean        @default(false)
   activeToken              String?        @unique
   activeExpires            DateTime? //4h
   phone                    String?

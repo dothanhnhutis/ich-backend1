@@ -141,12 +141,12 @@ export async function signInGoogleCallBack(
       userProvider = await linkAccountWithGoogleProvider(userInfo.id, user.id);
     }
 
-    if (userProvider.user.isBlocked)
+    if (userProvider.user.suspended)
       throw new BadRequestError(
         "Your account has been locked please contact the administrator"
       );
 
-    if (!userProvider.user.isActive)
+    if (!userProvider.user.inActive)
       throw new BadRequestError("Your account has been disactivate");
 
     req.session.user = {
@@ -168,7 +168,7 @@ export async function signIn(
 
   if (!user || !user.password || !(await compareData(user.password, password)))
     throw new BadRequestError("Invalid email or password");
-  if (user.isBlocked)
+  if (user.suspended)
     throw new BadRequestError(
       "Your account has been locked please contact the administrator"
     );
@@ -326,7 +326,7 @@ export async function checkDisactivedAccount(
       message: "You can use this email to register for an account",
     });
 
-  if (user.isActive)
+  if (user.inActive)
     return res.clearCookie(RECOVER_SESSION_NAME).status(StatusCodes.OK).json({
       message: "Your account is active",
     });

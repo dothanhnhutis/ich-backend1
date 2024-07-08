@@ -3,7 +3,7 @@ import { NotAuthorizedError, PermissionError } from "../error-handler";
 import prisma from "@/utils/db";
 import { getUserById } from "@/services/user.service";
 
-type AuthMiddlewareCheckType = "emailVerified" | "isBlocked" | "isActive";
+type AuthMiddlewareCheckType = "emailVerified" | "suspended" | "inActive";
 
 export const authMiddleware =
   (typesCheck?: AuthMiddlewareCheckType[]): Middleware =>
@@ -21,10 +21,10 @@ export const authMiddleware =
       if (typesCheck.includes("emailVerified") && !user.emailVerified) {
         throw new PermissionError("Your email hasn't been verified");
       }
-      if (typesCheck.includes("isActive") && !user.isActive) {
+      if (typesCheck.includes("inActive") && user.inActive) {
         throw new PermissionError();
       }
-      if (typesCheck.includes("isBlocked") && user.isBlocked) {
+      if (typesCheck.includes("suspended") && user.suspended) {
         throw new PermissionError(
           "Your account has been locked please contact the administrator"
         );
@@ -53,7 +53,7 @@ export const checkActive: Middleware = async (req, res, next) => {
     throw new NotAuthorizedError();
   }
 
-  if (!user || user.isBlocked || !user.isActive) {
+  if (!user || user.suspended || !user.inActive) {
     throw new PermissionError();
   }
 
