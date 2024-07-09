@@ -20,19 +20,27 @@ import {
   getUserByEmail,
   getUserById,
   getUserByRecoverToken,
-  queryUser,
+  getUserPrivateById,
+  searchUser,
 } from "@/services/user.service";
 import { Prisma } from "@prisma/client";
 import { isBase64Data, uploadImageCloudinary } from "@/utils/image";
 import { z } from "zod";
-import { omit, split } from "lodash";
+import { omit } from "lodash";
 import { signJWT, verifyJWT } from "@/utils/jwt";
 
-export async function searchUser(
+export async function search(
   req: Request<{}, {}, SearchUser["body"], SearchUser["query"]>,
   res: Response
 ) {
-  return res.status(StatusCodes.OK).json(await queryUser());
+  console.log("--------------");
+  console.log(req.query);
+  console.log(req.body);
+  if (req.body) {
+    return res.status(StatusCodes.OK).json(await searchUser(req.body));
+  } else {
+    return res.status(StatusCodes.OK).json({ message: "asda" });
+  }
 }
 
 export async function getUserRecoverToken(
@@ -63,9 +71,7 @@ export async function disactivate(req: Request, res: Response) {
   await editUserById(id, {
     inActive: false,
   });
-
   await req.logout();
-
   res.status(StatusCodes.OK).json({
     message: "disactivate",
   });
@@ -76,9 +82,10 @@ export async function editPassword(
   res: Response
 ) {
   const { oldPassword, newPassword } = req.body;
-  const { id } = req.session.user!;
-  const userExist = await getUserById(id);
+  const { id } = req.user!;
+  const userExist = await getUserPrivateById(id);
   if (!userExist) throw new BadRequestError("User not exist");
+
   const isValidOldPassword = await compareData(
     userExist.password!,
     oldPassword
@@ -211,7 +218,7 @@ export async function changeEmail(
 
 export async function sendVerifyEmail(req: Request, res: Response) {
   const { id } = req.session.user!;
-  const user = await getUserById(id);
+  const user = await getUserPrivateById(id);
 
   if (!user) throw new NotFoundError();
   // let verificationLink = `${configs.CLIENT_URL}/auth/confirm-email?token=${user.emailVerificationToken}`;

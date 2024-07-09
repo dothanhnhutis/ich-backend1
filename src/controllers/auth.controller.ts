@@ -28,6 +28,7 @@ import {
   getUserByRecoverToken,
   getUserByVerificationToken,
   getUserPasswordByEmail,
+  getUserPrivateByEmail,
   updatePasswordById,
   verifyEmailByToken,
 } from "@/services/user.service";
@@ -255,7 +256,7 @@ export async function recover(
   res: Response
 ) {
   const { email } = req.body;
-  const existingUser = await getUserByEmail(email);
+  const existingUser = await getUserPrivateByEmail(email);
   if (!existingUser) throw new BadRequestError("Invalid email");
   if (!existingUser.emailVerified)
     throw new BadRequestError(
@@ -319,7 +320,7 @@ export async function checkDisactivedAccount(
   res: Response
 ) {
   const { email } = req.body;
-  const user = await getUserByEmail(email);
+  const user = await getUserPrivateByEmail(email);
 
   if (!user)
     return res.clearCookie(RECOVER_SESSION_NAME).status(StatusCodes.OK).json({

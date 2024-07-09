@@ -1,4 +1,4 @@
-import { Role } from "@/schemas/user.schema";
+import { Role, SearchUser } from "@/schemas/user.schema";
 import prisma from "@/utils/db";
 import { hashData } from "@/utils/helper";
 import { isBase64Data, uploadImageCloudinary } from "@/utils/image";
@@ -23,6 +23,12 @@ export const userPublicInfo = Prisma.validator<Prisma.UserSelect>()({
 
 export const userPrivateInfo = Prisma.validator<Prisma.UserSelect>()({
   password: true,
+  activeToken: true,
+  activeExpires: true,
+  passwordResetToken: true,
+  passwordResetExpires: true,
+  emailVerificationToken: true,
+  emailVerificationExpires: true,
   linkProvider: {
     select: {
       provider: true,
@@ -67,7 +73,7 @@ export type QueryUserType = {
   suspended?: boolean | undefined;
   orderBy?: string | undefined;
   page?: number | undefined;
-  take?: number | undefined;
+  limit?: number | undefined;
 };
 
 export function convertStringToOrderArray(input: string) {
@@ -78,8 +84,8 @@ export function convertStringToOrderArray(input: string) {
   });
 }
 
-export async function queryUser(props?: QueryUserType | undefined) {
-  const take = props?.take || 10;
+export async function searchUser(props?: SearchUser["body"] | undefined) {
+  const take = props?.limit || 10;
   const page = (!props?.page || props.page <= 0 ? 1 : props.page) - 1;
   const skip = page * take;
 
@@ -119,16 +125,13 @@ export async function queryUser(props?: QueryUserType | undefined) {
       suspended: props.suspended,
     };
   }
-  console.log(where);
 
   const [users, total] = await prisma.$transaction([
     prisma.user.findMany({
       where,
       take,
       skip,
-      orderBy: props?.orderBy
-        ? convertStringToOrderArray(props?.orderBy)
-        : undefined,
+      orderBy: [{ email: "asc" }, { email: "desc" }],
       select: { ...userPublicInfo, ...userPrivateInfo },
     }),
     prisma.user.count({ where: where }),
@@ -169,6 +172,26 @@ export async function getUserPasswordByEmail(email: string) {
       email: true,
       password: true,
     },
+  });
+  return user;
+}
+
+export async function getUserPrivateById(id: string) {
+  const user = await prisma.user.findUnique({
+    where: {
+      id,
+    },
+    select: { ...userPublicInfo, ...userPrivateInfo },
+  });
+  return user;
+}
+
+export async function getUserPrivateByEmail(email: string) {
+  const user = await prisma.user.findUnique({
+    where: {
+      email,
+    },
+    select: { ...userPublicInfo, ...userPrivateInfo },
   });
   return user;
 }

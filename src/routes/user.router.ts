@@ -8,7 +8,7 @@ import {
   getUser,
   sendVerifyEmail,
   getUserRecoverToken,
-  searchUser,
+  search,
   creatNewUser,
 } from "@/controllers/user.controller";
 import checkPermission from "@/middleware/checkPermission";
@@ -53,7 +53,7 @@ function userRouter(): Router {
     authMiddleware(["emailVerified", "inActive", "suspended"]),
     checkPermission(["ADMIN"]),
     validateResource(searchUserSchema),
-    searchUser
+    search
   );
 
   router.post(
