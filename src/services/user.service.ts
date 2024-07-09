@@ -3,9 +3,10 @@ import prisma from "@/utils/db";
 import { hashData } from "@/utils/helper";
 import { isBase64Data, uploadImageCloudinary } from "@/utils/image";
 import { Prisma } from "@prisma/client";
+import { omit } from "lodash";
 import { z } from "zod";
 
-export const userPublicInfo: Prisma.UserSelect = {
+export const userPublicInfo = Prisma.validator<Prisma.UserSelect>()({
   id: true,
   email: true,
   emailVerified: true,
@@ -18,7 +19,16 @@ export const userPublicInfo: Prisma.UserSelect = {
   address: true,
   createdAt: true,
   updatedAt: true,
-};
+});
+
+export const userPrivateInfo = Prisma.validator<Prisma.UserSelect>()({
+  password: true,
+  linkProvider: {
+    select: {
+      provider: true,
+    },
+  },
+});
 
 //CREATE
 export async function createUser(
@@ -50,12 +60,12 @@ export async function createUserWithEmailAndPass(
 
 // READ
 export type QueryUserType = {
-  email?: string;
-  role?: string;
-  emailVerified?: boolean;
-  inActive?: boolean;
-  suspended?: boolean;
-  orderBy?: string;
+  emails?: string[] | undefined;
+  roles?: Role[] | undefined;
+  emailVerified?: boolean | undefined;
+  inActive?: boolean | undefined;
+  suspended?: boolean | undefined;
+  orderBy?: string | undefined;
   page?: number | undefined;
   take?: number | undefined;
 };
@@ -73,40 +83,77 @@ export async function queryUser(props?: QueryUserType | undefined) {
   const page = (!props?.page || props.page <= 0 ? 1 : props.page) - 1;
   const skip = page * take;
 
-  const where: Prisma.UserWhereInput = {
-    email:
-      !props?.email || props.email.split(",").length == 0
-        ? undefined
-        : { in: props.email.split(",") },
-    role:
-      !props?.role || props.role.split(",").length == 0
-        ? undefined
-        : { in: props.role.split(",") as Role[] },
-    emailVerified: props?.emailVerified,
-    inActive: props?.inActive,
-    suspended: props?.suspended,
-  };
+  let where: Prisma.UserWhereInput = {};
 
-  const query: Prisma.UserFindManyArgs = {
-    where,
-    take,
-    skip,
-    orderBy: props?.orderBy
-      ? convertStringToOrderArray(props?.orderBy)
-      : undefined,
-    select: userPublicInfo,
-  };
+  if (props?.emails) {
+    where = {
+      ...where,
+      email: {
+        in: props.emails,
+      },
+    };
+  }
+  if (props?.roles) {
+    where = {
+      ...where,
+      role: {
+        in: props.roles,
+      },
+    };
+  }
+  if (props?.emailVerified) {
+    where = {
+      ...where,
+      emailVerified: props.emailVerified,
+    };
+  }
+  if (props?.inActive) {
+    where = {
+      ...where,
+      inActive: props.inActive,
+    };
+  }
+  if (props?.suspended) {
+    where = {
+      ...where,
+      suspended: props.suspended,
+    };
+  }
+  console.log(where);
 
   const [users, total] = await prisma.$transaction([
-    prisma.user.findMany(query),
-    prisma.user.count({ where: query.where }),
+    prisma.user.findMany({
+      where,
+      take,
+      skip,
+      orderBy: props?.orderBy
+        ? convertStringToOrderArray(props?.orderBy)
+        : undefined,
+      select: { ...userPublicInfo, ...userPrivateInfo },
+    }),
+    prisma.user.count({ where: where }),
   ]);
 
+  const usersNoPass = users.map((user) => {
+    const isCerdential: boolean = user.password == null ? false : true;
+    if (!isCerdential) {
+      return omit(user, ["password"]);
+    }
+    user.linkProvider = [
+      {
+        provider: "credential",
+      },
+      ...user.linkProvider,
+    ];
+    return user;
+  });
+
   return {
-    users,
+    users: usersNoPass,
     metadata: {
       hasNextPage: skip + take < total,
       totalPage: Math.ceil(total / take),
+      totalItem: total,
     },
   };
 }

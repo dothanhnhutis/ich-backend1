@@ -32,38 +32,7 @@ export async function searchUser(
   req: Request<{}, {}, SearchUser["body"], SearchUser["query"]>,
   res: Response
 ) {
-  return res.status(StatusCodes.OK).json(
-    await queryUser({
-      email: req.body.email || req.query.email,
-      role: req.body.role || req.query.role,
-      emailVerified:
-        req.body.emailVerified ||
-        (req.query.emailVerified != undefined
-          ? req.query.emailVerified == "true" || req.query.emailVerified == "1"
-          : req.query.emailVerified),
-      inActive:
-        req.body.inActive ||
-        (req.query.inActive != undefined
-          ? req.query.inActive == "true" || req.query.inActive == "1"
-          : req.query.inActive),
-      suspended:
-        req.body.suspended ||
-        (req.query.suspended != undefined
-          ? req.query.suspended == "true" || req.query.suspended == "1"
-          : req.query.suspended),
-      orderBy: req.body.orderBy || req.query.orderBy,
-      page:
-        req.body.page ||
-        (req.query.page != undefined
-          ? parseInt(req.query.page)
-          : req.query.page),
-      take:
-        req.body.limit ||
-        (req.query.limit != undefined
-          ? parseInt(req.query.limit)
-          : req.query.limit),
-    })
-  );
+  return res.status(StatusCodes.OK).json(await queryUser());
 }
 
 export async function getUserRecoverToken(
@@ -86,8 +55,6 @@ export async function getUser(req: Request, res: Response) {
 }
 
 export async function currentUser(req: Request, res: Response) {
-  // const { id } = req.session.user!;
-  // const user = await getUserById(id);
   res.status(StatusCodes.OK).json(req.user);
 }
 

@@ -7,7 +7,7 @@ const roleRegex =
   /^((ADMIN|MANAGER|SALER|WRITER|CUSTOMER)(\,))*?(ADMIN|MANAGER|SALER|WRITER|CUSTOMER)$/;
 const trueFalseRegex = /^(0|1|true|false)$/;
 const orderByRegex =
-  /^((email|role|emailVerified|isActive|isBlocked)\.(asc|desc)\,)*?(email|role|emailVerified|isActive|isBlocked)\.(asc|desc)$/;
+  /^((email|role|emailVerified|inActive|suspended)\.(asc|desc)\,)*?(email|role|emailVerified|inActive|suspended)\.(asc|desc)$/;
 const checkNumber = (number: string) =>
   z
     .string()
@@ -230,68 +230,14 @@ export const searchUserSchema = z.object({
     }),
   body: z
     .object({
-      email: z
-        .string({
-          invalid_type_error: "Email field must be string",
-        })
-        .regex(
-          emailRegex,
-          "Email field invalid. Ex: 'example@gmail.com' | 'example@gmail.com,example1@gmail.com'"
-        ),
-      role: z
-        .string({
-          invalid_type_error:
-            "Role field must be 'ADMIN' | 'MANAGER' | 'SALER' | 'WRITER' | 'CUSTOMER'. Ex: 'MANAGER' | 'MANAGER,SALER'",
-        })
-        .regex(
-          roleRegex,
-          "Role field must be 'ADMIN' | 'MANAGER' | 'SALER' | 'WRITER' | 'CUSTOMER'. Ex: 'MANAGER' | 'MANAGER,SALER'"
-        ),
-      emailVerified: z
-        .string({
-          invalid_type_error:
-            "EmailVerified field must be '0' | '1' | 'true' | 'false'. Ex: 'true' | '0'",
-        })
-        .regex(
-          trueFalseRegex,
-          "EmailVerified field must be '0' | '1' | 'true' | 'false'. Ex: 'true' | '0'"
-        )
-        .transform(
-          (emailVerified) => emailVerified == "true" || emailVerified == "1"
-        ),
-      inActive: z
-        .string({
-          invalid_type_error:
-            "IsActive field must be '0' | '1' | 'true' | 'false'. Ex: 'true' | '0'",
-        })
-        .regex(
-          trueFalseRegex,
-          "IsActive field must be '0' | '1' | 'true' | 'false'. Ex: 'true' | '0'"
-        )
-        .transform(
-          (emailVerified) => emailVerified == "true" || emailVerified == "1"
-        ),
-      suspended: z
-        .string({
-          invalid_type_error:
-            "suspended field must be '0' | '1' | 'true' | 'false'. Ex: 'true' | '0'",
-        })
-        .regex(
-          trueFalseRegex,
-          "suspended field must be '0' | '1' | 'true' | 'false'. Ex: 'true' | '0'"
-        )
-        .transform(
-          (emailVerified) => emailVerified == "true" || emailVerified == "1"
-        ),
+      emails: z.array(z.string().email()).nonempty("Emails can't empty"),
+      roles: z.array(z.enum(roles)).nonempty("Emails can't empty"),
+      emailVerified: z.enum(["0", "1", "true", "false"] as const),
+      inActive: z.enum(["0", "1", "true", "false"] as const),
+      suspended: z.enum(["0", "1", "true", "false"] as const),
       orderBy: z
-        .string({
-          invalid_type_error:
-            "OrderBy field must be format (email|role|emailVerified|isActive|isBlocked).(asc|desc). Ex: 'email.asc' | 'email.asc,email.desc'",
-        })
-        .regex(
-          orderByRegex,
-          "OrderBy field must be format (email|role|emailVerified|isActive|isBlocked).(asc|desc). Ex: 'email.asc' | 'email.asc,email.desc'"
-        ),
+        .array(z.string().regex(orderByRegex))
+        .nonempty("orderBy can't empty"),
       page: z
         .number({
           invalid_type_error: "Page field must be number",

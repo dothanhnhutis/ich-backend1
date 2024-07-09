@@ -9,10 +9,10 @@ datasource db {
 
 model LinkProvider {
   id         String @id @default(cuid())
-  providerId String
+  providerId String @default("")
   provider   String @default("credential")
   userId     String
-  user       User   @relation(fields: [userId], references: [id])
+  user       User   @relation(name: "linkProvider", fields: [userId], references: [id])
 
   @@unique([provider, providerId])
   @@index([userId, provider, providerId])
@@ -46,8 +46,8 @@ model User {
   address                  String?
   createdAt                DateTime       @default(now())
   updatedAt                DateTime       @updatedAt
-  LinkProvider             LinkProvider[]
-  Post                     Post[]
+  linkProvider             LinkProvider[] @relation(name: "linkProvider")
+  posts                    Post[]
 
   @@index([email, emailVerificationToken, passwordResetToken, activeToken])
 }
