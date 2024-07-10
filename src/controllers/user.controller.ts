@@ -28,19 +28,18 @@ import { isBase64Data, uploadImageCloudinary } from "@/utils/image";
 import { z } from "zod";
 import { omit } from "lodash";
 import { signJWT, verifyJWT } from "@/utils/jwt";
+import { UserRole } from "@/schemas/auth.schema";
 
 export async function search(
   req: Request<{}, {}, SearchUser["body"], SearchUser["query"]>,
   res: Response
 ) {
-  console.log("--------------");
-  console.log(req.query);
-  console.log(req.body);
-  if (req.body) {
-    return res.status(StatusCodes.OK).json(await searchUser(req.body));
-  } else {
-    return res.status(StatusCodes.OK).json({ message: "asda" });
-  }
+  return res.status(StatusCodes.OK).json(
+    await searchUser({
+      ...req.query,
+      ...req.body,
+    })
+  );
 }
 
 export async function getUserRecoverToken(

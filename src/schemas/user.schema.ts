@@ -154,9 +154,13 @@ export const searchUserSchema = z.object({
               .filter((val) => roleRegex.test(val))
               .join(",")
               .split(",")
-              .filter((val, index, arr) => arr.indexOf(val) === index);
+              .filter(
+                (val, index, arr) => arr.indexOf(val) === index
+              ) as CreateUser["body"]["role"][];
           } else {
-            return roleRegex.test(role) ? role.split(",") : undefined;
+            return roleRegex.test(role)
+              ? (role.split(",") as CreateUser["body"]["role"][])
+              : undefined;
           }
         }),
       emailVerified: z
@@ -164,13 +168,16 @@ export const searchUserSchema = z.object({
         .or(z.array(z.string()))
         .transform((emailVerified) => {
           if (Array.isArray(emailVerified)) {
-            return emailVerified
+            const hasEmailVerified = emailVerified
               .filter((val) => trueFalseRegex.test(val))
               .filter((val, index, arr) => arr.indexOf(val) === index)
               .reverse()[0];
+            return hasEmailVerified
+              ? hasEmailVerified == "1" || hasEmailVerified == "true"
+              : undefined;
           } else {
             return trueFalseRegex.test(emailVerified)
-              ? emailVerified
+              ? emailVerified == "1" || emailVerified == "true"
               : undefined;
           }
         }),
@@ -179,12 +186,17 @@ export const searchUserSchema = z.object({
         .or(z.array(z.string()))
         .transform((inActive) => {
           if (Array.isArray(inActive)) {
-            return inActive
+            const hasInActive = inActive
               .filter((val) => trueFalseRegex.test(val))
               .filter((val, index, arr) => arr.indexOf(val) === index)
               .reverse()[0];
+            return hasInActive
+              ? hasInActive == "1" || hasInActive == "true"
+              : undefined;
           } else {
-            return trueFalseRegex.test(inActive) ? inActive : undefined;
+            return trueFalseRegex.test(inActive)
+              ? inActive == "1" || inActive == "true"
+              : undefined;
           }
         }),
       suspended: z
@@ -192,12 +204,17 @@ export const searchUserSchema = z.object({
         .or(z.array(z.string()))
         .transform((suspended) => {
           if (Array.isArray(suspended)) {
-            return suspended
+            const hasSuspended = suspended
               .filter((val) => trueFalseRegex.test(val))
               .filter((val, index, arr) => arr.indexOf(val) === index)
               .reverse()[0];
+            return hasSuspended
+              ? hasSuspended == "1" || hasSuspended == "true"
+              : undefined;
           } else {
-            return trueFalseRegex.test(suspended) ? suspended : undefined;
+            return trueFalseRegex.test(suspended)
+              ? suspended == "1" || suspended == "true"
+              : undefined;
           }
         }),
       orderBy: z
@@ -209,9 +226,16 @@ export const searchUserSchema = z.object({
               .filter((val) => orderByRegex.test(val))
               .join(",")
               .split(",")
-              .filter((val, index, arr) => arr.indexOf(val) === index);
+              .filter((val, index, arr) => arr.indexOf(val) === index)
+              .map((or) => or.split(".").slice(0, 3))
+              .map(([key, value]) => ({ [key]: value }));
           } else {
-            return orderByRegex.test(orderBy) ? orderBy.split(",") : undefined;
+            return orderByRegex.test(orderBy)
+              ? orderBy
+                  .split(",")
+                  .map((or) => or.split(".").slice(0, 3))
+                  .map(([key, value]) => ({ [key]: value }))
+              : undefined;
           }
         }),
       page: z
@@ -219,12 +243,13 @@ export const searchUserSchema = z.object({
         .or(z.array(z.string()))
         .transform((page) => {
           if (Array.isArray(page)) {
-            return page
+            const hasPage = page
               .filter((val) => /^[1-9][0-9]*?$/.test(val))
               .filter((val, index, arr) => arr.indexOf(val) === index)
               .reverse()[0];
+            return parseInt(hasPage);
           } else {
-            return /^[1-9][0-9]*?$/.test(page) ? page : undefined;
+            return /^[1-9][0-9]*?$/.test(page) ? parseInt(page) : undefined;
           }
         }),
       limit: z
@@ -232,19 +257,19 @@ export const searchUserSchema = z.object({
         .or(z.array(z.string()))
         .transform((limit) => {
           if (Array.isArray(limit)) {
-            return limit
+            const hasLimit = limit
               .filter((val) => /^[1-9][0-9]*?$/.test(val))
               .filter((val, index, arr) => arr.indexOf(val) === index)
               .reverse()[0];
+            return parseInt(hasLimit);
           } else {
-            return /^[1-9][0-9]*?$/.test(limit) ? limit : undefined;
+            return /^[1-9][0-9]*?$/.test(limit) ? parseInt(limit) : undefined;
           }
         }),
     })
     .strip()
     .partial()
     .transform((val) => {
-      console.log(val);
       if (!val.email || val.email.length == 0) {
         delete val.email;
       }
@@ -273,10 +298,11 @@ export const searchUserSchema = z.object({
     }),
   body: z
     .object({
+      test: z.array(z.string()),
       emails: z
         .array(z.string().email("Invalid email in array"))
-        .nonempty("Emails can't empty"),
-      roles: z.array(z.enum(roles)).nonempty("Roles can't empty"),
+        .min(1, "Emails can't empty"),
+      roles: z.array(z.enum(roles)).min(1, "Roles can't empty"),
       emailVerified: z.boolean({
         invalid_type_error: "EmailVerified must be boolean",
       }),
@@ -288,20 +314,38 @@ export const searchUserSchema = z.object({
       }),
       orderBy: z
         .array(
-          z.record(
-            z.enum(
-              ["email", "role", "emailVerified", "inActive", "suspended"],
+          z
+            .object({
+              email: z.enum(["asc", "desc"], {
+                message: "orderBy email must be enum 'asc'|'desc'",
+              }),
+              role: z.enum(["asc", "desc"], {
+                message: "orderBy role must be enum 'asc'|'desc'",
+              }),
+              emailVerified: z.enum(["asc", "desc"], {
+                message: "orderBy emailVerified must be enum 'asc'|'desc'",
+              }),
+              inActive: z.enum(["asc", "desc"], {
+                message: "orderBy inActive must be enum 'asc'|'desc'",
+              }),
+              suspended: z.enum(["asc", "desc"], {
+                message: "orderBy suspended must be enum 'asc'|'desc'",
+              }),
+            })
+            .strip()
+            .partial()
+            .refine(
+              (data) => {
+                const keys = Object.keys(data);
+                return keys.length === 1;
+              },
               {
                 message:
-                  "OrderBy key must be enum 'email' | 'role' | 'emailVerified' | 'inActive' | 'suspended'.",
+                  "Each object must have exactly one key, either 'email'|'role'|'emailVerified'|'inActive'|'suspended'",
               }
-            ),
-            z.enum(["asc", "desc"], {
-              message: "OrderBy value must be enum 'asc' | 'desc'.",
-            })
-          )
+            )
         )
-        .nonempty("orderBy can't empty"),
+        .min(1, "OrderBy can't empty"),
       page: z
         .number({
           invalid_type_error: "Page field must be number",

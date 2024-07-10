@@ -71,26 +71,25 @@ export type QueryUserType = {
   emailVerified?: boolean | undefined;
   inActive?: boolean | undefined;
   suspended?: boolean | undefined;
-  orderBy?: string | undefined;
+  orderBy?:
+    | {
+        email?: "asc" | "desc";
+        role?: "asc" | "desc";
+        emailVerified?: "asc" | "desc";
+        inActive?: "asc" | "desc";
+        suspended?: "asc" | "desc";
+      }[]
+    | undefined;
   page?: number | undefined;
   limit?: number | undefined;
 };
 
-export function convertStringToOrderArray(input: string) {
-  const pairs = input.split(",");
-  return pairs.map((pair) => {
-    const [field, order] = pair.split(".");
-    return { [field]: order };
-  });
-}
-
-export async function searchUser(props?: SearchUser["body"] | undefined) {
+export async function searchUser(props?: QueryUserType | undefined) {
   const take = props?.limit || 10;
   const page = (!props?.page || props.page <= 0 ? 1 : props.page) - 1;
   const skip = page * take;
 
-  let where: Prisma.UserWhereInput = {};
-
+  let where: Prisma.UserWhereInput = Prisma.validator<Prisma.UserSelect>()({});
   if (props?.emails) {
     where = {
       ...where,
@@ -104,6 +103,14 @@ export async function searchUser(props?: SearchUser["body"] | undefined) {
       ...where,
       role: {
         in: props.roles,
+        notIn: ["ADMIN"],
+      },
+    };
+  } else {
+    where = {
+      ...where,
+      role: {
+        notIn: ["ADMIN"],
       },
     };
   }
@@ -127,13 +134,20 @@ export async function searchUser(props?: SearchUser["body"] | undefined) {
   }
 
   const [users, total] = await prisma.$transaction([
-    prisma.user.findMany({
-      where,
-      take,
-      skip,
-      orderBy: [{ email: "asc" }, { email: "desc" }],
-      select: { ...userPublicInfo, ...userPrivateInfo },
-    }),
+    props?.orderBy
+      ? prisma.user.findMany({
+          where,
+          take,
+          skip,
+          select: { ...userPublicInfo, ...userPrivateInfo },
+          orderBy: props.orderBy,
+        })
+      : prisma.user.findMany({
+          where,
+          take,
+          skip,
+          select: { ...userPublicInfo, ...userPrivateInfo },
+        }),
     prisma.user.count({ where: where }),
   ]);
 
@@ -148,7 +162,7 @@ export async function searchUser(props?: SearchUser["body"] | undefined) {
       },
       ...user.linkProvider,
     ];
-    return user;
+    return omit(user, ["password"]);
   });
 
   return {
