@@ -10,6 +10,7 @@ import {
   getUserRecoverToken,
   search,
   creatNewUser,
+  getUsers,
 } from "@/controllers/user.controller";
 import checkPermission from "@/middleware/checkPermission";
 import { rateLimitSendEmail } from "@/middleware/rateLimit";
@@ -45,7 +46,7 @@ function userRouter(): Router {
     "/users",
     authMiddleware(["emailVerified", "inActive", "suspended"]),
     checkPermission(["ADMIN"]),
-    getUser
+    getUsers
   );
 
   router.get(
@@ -86,6 +87,12 @@ function userRouter(): Router {
   );
 
   router.patch("/users/change-email", requiredAuth, checkActive, changeEmail);
+  router.get(
+    "/users/:id",
+    authMiddleware(["emailVerified", "inActive", "suspended"]),
+    checkPermission(["ADMIN"]),
+    getUser
+  );
   return router;
 }
 

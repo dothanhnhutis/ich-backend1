@@ -56,7 +56,7 @@ export async function getUserRecoverToken(
   return res.status(StatusCodes.OK).json(user);
 }
 
-export async function getUser(req: Request, res: Response) {
+export async function getUsers(req: Request, res: Response) {
   const users = await getAllUser();
   return res.status(200).json(users);
 }
@@ -322,4 +322,11 @@ export async function creatNewUser(
   return res.status(StatusCodes.OK).json({
     message: "create new user success",
   });
+}
+
+export async function getUser(req: Request<{ id: string }>, res: Response) {
+  const { id } = req.params;
+  const user = await getUserById(id);
+  if (!user) throw new NotFoundError();
+  return res.status(200).json(omit(user, ["password"]));
 }
